@@ -3,8 +3,10 @@ import { getAllCompanies, getStats } from '@/lib/db';
 
 export async function GET() {
   try {
-    const companies = getAllCompanies();
-    const stats = getStats();
+    const [companies, stats] = await Promise.all([
+      getAllCompanies(),
+      getStats()
+    ]);
 
     return NextResponse.json({
       companies,

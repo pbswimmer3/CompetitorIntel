@@ -12,24 +12,26 @@ export async function GET(request: Request) {
     let news;
 
     if (companyId) {
-      news = getNewsByCompany(companyId, limit);
+      news = await getNewsByCompany(companyId, limit);
     } else if (category) {
-      news = getNewsByCategory(category, limit);
+      news = await getNewsByCategory(category, limit);
     } else if (significance === 'high') {
-      news = getHighSignificanceNews(limit);
+      news = await getHighSignificanceNews(limit);
     } else {
-      news = getAllNews(limit);
+      news = await getAllNews(limit);
     }
 
     // Enrich with company names
-    const enrichedNews = news.map(item => {
-      const company = getCompanyById(item.company_id);
-      return {
-        ...item,
-        company_name: company?.name || 'Unknown',
-        company_slug: company?.slug || ''
-      };
-    });
+    const enrichedNews = await Promise.all(
+      news.map(async (item) => {
+        const company = await getCompanyById(item.company_id);
+        return {
+          ...item,
+          company_name: company?.name || 'Unknown',
+          company_slug: company?.slug || ''
+        };
+      })
+    );
 
     return NextResponse.json({ news: enrichedNews });
   } catch (error) {

@@ -13,8 +13,10 @@ import { format, startOfWeek } from 'date-fns';
 
 export async function GET() {
   try {
-    const briefings = getAllBriefings(10);
-    const latest = getLatestBriefing();
+    const [briefings, latest] = await Promise.all([
+      getAllBriefings(10),
+      getLatestBriefing()
+    ]);
 
     return NextResponse.json({
       briefings,
@@ -32,14 +34,16 @@ export async function GET() {
 export async function POST() {
   try {
     // Gather data for briefing
-    const news = getAllNews(50);
-    const trends = getAllTrends(10);
-    const stats = getStats();
+    const [news, trends, stats] = await Promise.all([
+      getAllNews(50),
+      getAllTrends(10),
+      getStats()
+    ]);
 
     // Prepare data for Claude
-    const weekData: WeekData = {
-      newsItems: news.map(item => {
-        const company = getCompanyById(item.company_id);
+    const newsItemsWithCompany = await Promise.all(
+      news.map(async (item) => {
+        const company = await getCompanyById(item.company_id);
         return {
           company: company?.name || 'Unknown',
           title: item.title,
@@ -47,7 +51,11 @@ export async function POST() {
           significance: item.ai_significance || 'low',
           summary: item.ai_summary || item.title
         };
-      }),
+      })
+    );
+
+    const weekData: WeekData = {
+      newsItems: newsItemsWithCompany,
       trends: trends.map(t => ({
         title: t.title,
         description: t.description || ''
@@ -61,7 +69,7 @@ export async function POST() {
 
     // Store in database
     const weekOf = format(startOfWeek(new Date()), 'yyyy-MM-dd');
-    const briefingId = insertBriefing({
+    const briefingId = await insertBriefing({
       week_of: weekOf,
       content: briefingContent
     });

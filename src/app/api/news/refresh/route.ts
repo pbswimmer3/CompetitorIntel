@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
-import { getAllCompanies, insertNewsItem, getDb } from '@/lib/db';
+import { getAllCompanies, insertNewsItem, checkNewsExists } from '@/lib/db';
 import { fetchCompanyNews, cleanTitle } from '@/lib/scrapers/news';
 
 export async function POST() {
   try {
-    const companies = getAllCompanies();
+    const companies = await getAllCompanies();
     const results: { company: string; added: number; errors: string[] }[] = [];
 
     for (const company of companies) {
@@ -15,14 +15,11 @@ export async function POST() {
 
         for (const item of newsItems) {
           try {
-            // Check if we already have this article (by title)
-            const db = getDb();
-            const existing = db.prepare(
-              'SELECT id FROM news_items WHERE title = ? OR url = ?'
-            ).get(cleanTitle(item.title), item.link);
+            // Check if we already have this article (by title or URL)
+            const exists = await checkNewsExists(cleanTitle(item.title), item.link);
 
-            if (!existing) {
-              insertNewsItem({
+            if (!exists) {
+              await insertNewsItem({
                 company_id: company.id,
                 title: cleanTitle(item.title),
                 url: item.link,

@@ -6,29 +6,33 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get('limit') || '20');
 
-    const trends = getAllTrends(limit);
+    const trends = await getAllTrends(limit);
 
     // Enrich with company names
-    const enrichedTrends = trends.map(trend => {
-      let relatedCompanies: { id: string; name: string }[] = [];
-      try {
-        const companyIds = JSON.parse(trend.related_companies) as string[];
-        relatedCompanies = companyIds.map(id => {
-          const company = getCompanyById(id);
-          return {
-            id,
-            name: company?.name || id
-          };
-        });
-      } catch {
-        // If JSON parse fails, leave empty
-      }
+    const enrichedTrends = await Promise.all(
+      trends.map(async (trend) => {
+        let relatedCompanies: { id: string; name: string }[] = [];
+        try {
+          const companyIds = JSON.parse(trend.related_companies) as string[];
+          relatedCompanies = await Promise.all(
+            companyIds.map(async (id) => {
+              const company = await getCompanyById(id);
+              return {
+                id,
+                name: company?.name || id
+              };
+            })
+          );
+        } catch {
+          // If JSON parse fails, leave empty
+        }
 
-      return {
-        ...trend,
-        related_companies_parsed: relatedCompanies
-      };
-    });
+        return {
+          ...trend,
+          related_companies_parsed: relatedCompanies
+        };
+      })
+    );
 
     return NextResponse.json({ trends: enrichedTrends });
   } catch (error) {

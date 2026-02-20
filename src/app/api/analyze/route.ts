@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { analyzeNews, NewsItemForAnalysis } from '@/lib/claude';
-import { getDb, insertNewsItem, getCompanyById } from '@/lib/db';
+import { insertNewsItem, getCompanyById } from '@/lib/db';
 
 export async function POST(request: Request) {
   try {
@@ -15,12 +15,17 @@ export async function POST(request: Request) {
     }
 
     // Prepare items for Claude analysis
-    const itemsForAnalysis: NewsItemForAnalysis[] = newsItems.map(item => ({
-      title: item.title,
-      content: item.content,
-      source: item.source,
-      company: item.company_id ? getCompanyById(item.company_id)?.name : undefined
-    }));
+    const itemsForAnalysis: NewsItemForAnalysis[] = await Promise.all(
+      newsItems.map(async (item) => {
+        const company = item.company_id ? await getCompanyById(item.company_id) : undefined;
+        return {
+          title: item.title,
+          content: item.content,
+          source: item.source,
+          company: company?.name
+        };
+      })
+    );
 
     // Call Claude API
     const analysisResult = await analyzeNews(itemsForAnalysis);
@@ -32,7 +37,7 @@ export async function POST(request: Request) {
       const analysis = analysisResult.analyses[i];
 
       if (analysis) {
-        const id = insertNewsItem({
+        const id = await insertNewsItem({
           company_id: item.company_id,
           title: item.title,
           url: item.url || null,

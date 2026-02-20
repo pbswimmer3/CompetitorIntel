@@ -7,7 +7,7 @@ export async function GET(
 ) {
   try {
     const { slug } = await params;
-    const company = getCompanyBySlug(slug);
+    const company = await getCompanyBySlug(slug);
 
     if (!company) {
       return NextResponse.json(
@@ -16,8 +16,10 @@ export async function GET(
       );
     }
 
-    const news = getNewsByCompany(company.id);
-    const jobs = getJobsByCompany(company.id);
+    const [news, jobs] = await Promise.all([
+      getNewsByCompany(company.id),
+      getJobsByCompany(company.id)
+    ]);
 
     return NextResponse.json({
       company,
