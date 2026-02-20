@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --use-npm --no-turbopack --import-alias \"@/*\" --yes)",
+      "Bash(npx create-next-app@latest temp-app --typescript --tailwind --eslint --app --src-dir --use-npm --no-turbopack --import-alias \"@/*\" --yes)",
+      "Bash(npm install:*)",
+      "Bash(npx shadcn@latest init:*)",
+      "Bash(npx shadcn@latest add:*)",
+      "Bash(npm run seed:*)",
+      "Bash(npm run seed:news:*)",
+      "Bash(npm run build:*)",
+      "Bash(cat:*)",
+      "Bash(npm run dev:*)",
+      "Bash(taskkill:*)",
+      "Bash(npx next dev --turbopack=false)",
+      "Bash(tasklist:*)",
+      "Bash(findstr:*)",
+      "Bash(netstat:*)",
+      "Bash(powershell -Command \"Stop-Process -Name node -Force\")",
+      "Bash(curl:*)",
+      "Bash(npx tsx:*)",
+      "Bash(node -e:*)",
+      "Bash(git init:*)"
+    ]
+  }
+}

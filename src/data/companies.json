@@ -1,0 +1,110 @@
+[
+  {
+    "id": "celonis",
+    "name": "Celonis",
+    "slug": "celonis",
+    "description": "Market leader in process mining. AI-enhanced execution management platform.",
+    "website": "https://www.celonis.com",
+    "founded_year": 2011,
+    "funding_total": "$1.4B",
+    "valuation": "$13B",
+    "employee_count_estimate": 3000,
+    "category": "competitor"
+  },
+  {
+    "id": "uipath",
+    "name": "UiPath",
+    "slug": "uipath",
+    "description": "Enterprise automation platform. Public company (NYSE: PATH). RPA + process mining.",
+    "website": "https://www.uipath.com",
+    "founded_year": 2005,
+    "funding_total": "Public",
+    "valuation": "~$7B market cap",
+    "employee_count_estimate": 4000,
+    "category": "competitor"
+  },
+  {
+    "id": "abbyy",
+    "name": "ABBYY",
+    "slug": "abbyy",
+    "description": "Process intelligence and intelligent document processing.",
+    "website": "https://www.abbyy.com",
+    "founded_year": 1989,
+    "funding_total": "$200M+",
+    "valuation": "Private",
+    "employee_count_estimate": 1200,
+    "category": "competitor"
+  },
+  {
+    "id": "microsoft",
+    "name": "Microsoft (Process Advisor)",
+    "slug": "microsoft-process",
+    "description": "Process mining via Power Automate Process Advisor, now enhanced with Copilot.",
+    "website": "https://powerautomate.microsoft.com",
+    "founded_year": 1975,
+    "funding_total": "Public",
+    "valuation": "Public (MSFT)",
+    "employee_count_estimate": 220000,
+    "category": "adjacent"
+  },
+  {
+    "id": "ibm",
+    "name": "IBM Process Mining",
+    "slug": "ibm-process",
+    "description": "Enterprise process mining integrated with Watson/watsonx AI.",
+    "website": "https://www.ibm.com/products/process-mining",
+    "founded_year": 1911,
+    "funding_total": "Public",
+    "valuation": "Public (IBM)",
+    "employee_count_estimate": 280000,
+    "category": "adjacent"
+  },
+  {
+    "id": "sap-signavio",
+    "name": "SAP Signavio",
+    "slug": "sap-signavio",
+    "description": "Process transformation suite acquired by SAP in 2021. Integrated into SAP ecosystem.",
+    "website": "https://www.signavio.com",
+    "founded_year": 2009,
+    "funding_total": "Acquired by SAP (~$1.2B)",
+    "valuation": "SAP subsidiary",
+    "employee_count_estimate": 800,
+    "category": "competitor"
+  },
+  {
+    "id": "automation-anywhere",
+    "name": "Automation Anywhere",
+    "slug": "automation-anywhere",
+    "description": "Cloud-native RPA + process discovery platform.",
+    "website": "https://www.automationanywhere.com",
+    "founded_year": 2003,
+    "funding_total": "$840M",
+    "valuation": "$6.8B",
+    "employee_count_estimate": 2500,
+    "category": "adjacent"
+  },
+  {
+    "id": "apromore",
+    "name": "Apromore",
+    "slug": "apromore",
+    "description": "Open-source process mining platform. Academic roots (University of Melbourne).",
+    "website": "https://apromore.com",
+    "founded_year": 2019,
+    "funding_total": "$15M+",
+    "valuation": "Private",
+    "employee_count_estimate": 80,
+    "category": "competitor"
+  },
+  {
+    "id": "skan-ai",
+    "name": "Skan.AI",
+    "slug": "skan-ai",
+    "description": "Computer-vision based process intelligence. Series B. Non-invasive process discovery.",
+    "website": "https://www.skan.ai",
+    "founded_year": 2018,
+    "funding_total": "$54M",
+    "valuation": "Private",
+    "employee_count_estimate": 90,
+    "category": "target"
+  }
+]

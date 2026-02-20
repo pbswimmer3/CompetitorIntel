@@ -1,0 +1,34 @@
+import { NextResponse } from 'next/server';
+import { getCompanyBySlug, getNewsByCompany, getJobsByCompany } from '@/lib/db';
+
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ slug: string }> }
+) {
+  try {
+    const { slug } = await params;
+    const company = getCompanyBySlug(slug);
+
+    if (!company) {
+      return NextResponse.json(
+        { error: 'Company not found' },
+        { status: 404 }
+      );
+    }
+
+    const news = getNewsByCompany(company.id);
+    const jobs = getJobsByCompany(company.id);
+
+    return NextResponse.json({
+      company,
+      news,
+      jobs
+    });
+  } catch (error) {
+    console.error('Error fetching company:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch company' },
+      { status: 500 }
+    );
+  }
+}
