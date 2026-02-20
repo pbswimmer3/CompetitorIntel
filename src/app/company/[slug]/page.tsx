@@ -59,14 +59,16 @@ const categoryIcons = {
 
 export default async function CompanyPage({ params }: Props) {
   const { slug } = await params;
-  const company = getCompanyBySlug(slug);
+  const company = await getCompanyBySlug(slug);
 
   if (!company) {
     notFound();
   }
 
-  const news = getNewsByCompany(company.id);
-  const jobs = getJobsByCompany(company.id);
+  const [news, jobs] = await Promise.all([
+    getNewsByCompany(company.id),
+    getJobsByCompany(company.id)
+  ]);
 
   return (
     <div className="space-y-8">
