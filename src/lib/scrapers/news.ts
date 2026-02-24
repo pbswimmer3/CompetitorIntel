@@ -97,6 +97,150 @@ function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+// PR Newswire RSS feed for direct press releases
+export interface PRNewsItem extends RawNewsItem {
+  companyId: string;
+}
+
+// Fetch press releases from PR Newswire and Business Wire
+export async function fetchPRNewswire(companies: Company[]): Promise<PRNewsItem[]> {
+  const results: PRNewsItem[] = [];
+
+  // PR Newswire search feeds for each company
+  const companySearchTerms: Record<string, string[]> = {
+    'celonis': ['Celonis'],
+    'uipath': ['UiPath'],
+    'abbyy': ['ABBYY'],
+    'automation-anywhere': ['Automation Anywhere'],
+    'sap-signavio': ['SAP Signavio', 'Signavio'],
+    'skan-ai': ['Skan.AI', 'Skan AI'],
+    'apromore': ['Apromore'],
+    // Skip IBM and Microsoft as they have too many unrelated press releases
+  };
+
+  for (const company of companies) {
+    const searchTerms = companySearchTerms[company.id];
+    if (!searchTerms) continue;
+
+    for (const term of searchTerms) {
+      try {
+        // PR Newswire RSS feed
+        const prNewswireUrl = `https://www.prnewswire.com/rss/news-releases-list.rss?searchTerms=${encodeURIComponent(term)}`;
+
+        try {
+          const feed = await parser.parseURL(prNewswireUrl);
+
+          for (const item of feed.items.slice(0, 3)) {
+            // Verify the company is actually mentioned in title or content
+            const titleLower = (item.title || '').toLowerCase();
+            const contentLower = (item.contentSnippet || item.content || '').toLowerCase();
+            const termLower = term.toLowerCase();
+
+            if (titleLower.includes(termLower) || contentLower.includes(termLower)) {
+              results.push({
+                title: item.title || '',
+                link: item.link || '',
+                pubDate: item.pubDate || new Date().toISOString(),
+                source: 'PR Newswire',
+                content: item.contentSnippet || item.content || '',
+                companyId: company.id
+              });
+            }
+          }
+        } catch (err) {
+          // PR Newswire might block or rate limit - silently continue
+          console.log(`PR Newswire fetch failed for ${term}, continuing...`);
+        }
+
+        // Business Wire RSS feed
+        const businessWireUrl = `https://feed.businesswire.com/rss/home/?rss=G1QFDERJXkJeEFpRWg==&keyword=${encodeURIComponent(term)}`;
+
+        try {
+          const bwFeed = await parser.parseURL(businessWireUrl);
+
+          for (const item of bwFeed.items.slice(0, 3)) {
+            const titleLower = (item.title || '').toLowerCase();
+            const contentLower = (item.contentSnippet || item.content || '').toLowerCase();
+            const termLower = term.toLowerCase();
+
+            if (titleLower.includes(termLower) || contentLower.includes(termLower)) {
+              results.push({
+                title: item.title || '',
+                link: item.link || '',
+                pubDate: item.pubDate || new Date().toISOString(),
+                source: 'Business Wire',
+                content: item.contentSnippet || item.content || '',
+                companyId: company.id
+              });
+            }
+          }
+        } catch (err) {
+          console.log(`Business Wire fetch failed for ${term}, continuing...`);
+        }
+
+        // Small delay between requests
+        await delay(300);
+      } catch (err) {
+        console.error(`Error fetching PR for ${company.name}:`, err);
+      }
+    }
+  }
+
+  // Deduplicate by title
+  const seen = new Set<string>();
+  return results.filter(item => {
+    const key = item.title.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+// GlobeNewswire RSS for additional coverage
+export async function fetchGlobeNewswire(companies: Company[]): Promise<PRNewsItem[]> {
+  const results: PRNewsItem[] = [];
+
+  // GlobeNewswire category feeds relevant to process mining/automation
+  const categoryFeeds = [
+    'https://www.globenewswire.com/RssFeed/subjectcode/25-Business%20Process%20Management/feedTitle/GlobeNewswire%20-%20Business%20Process%20Management',
+    'https://www.globenewswire.com/RssFeed/subjectcode/32-Enterprise%20Software/feedTitle/GlobeNewswire%20-%20Enterprise%20Software'
+  ];
+
+  const companyNames = new Map(companies.map(c => [c.name.toLowerCase(), c.id]));
+
+  for (const feedUrl of categoryFeeds) {
+    try {
+      const feed = await parser.parseURL(feedUrl);
+
+      for (const item of feed.items.slice(0, 10)) {
+        const titleLower = (item.title || '').toLowerCase();
+        const contentLower = (item.contentSnippet || item.content || '').toLowerCase();
+
+        // Check if any of our tracked companies are mentioned
+        for (const [name, id] of companyNames) {
+          if (titleLower.includes(name) || contentLower.includes(name)) {
+            results.push({
+              title: item.title || '',
+              link: item.link || '',
+              pubDate: item.pubDate || new Date().toISOString(),
+              source: 'GlobeNewswire',
+              content: item.contentSnippet || item.content || '',
+              companyId: id
+            });
+            break; // Only add once per item
+          }
+        }
+      }
+
+      await delay(300);
+    } catch (err) {
+      console.error('Error fetching GlobeNewswire:', err);
+    }
+  }
+
+  return results;
+}
+
 // Batch fetch with proper error handling
 export async function batchFetchNews(
   companies: Company[],

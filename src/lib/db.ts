@@ -250,6 +250,26 @@ export async function checkNewsExists(title: string, url: string | null): Promis
   return result.length > 0;
 }
 
+export async function updateNewsItemAnalysis(
+  id: number,
+  analysis: {
+    ai_summary: string | null;
+    ai_category: string | null;
+    ai_significance: string | null;
+    ai_implications: string | null;
+  }
+): Promise<void> {
+  const sql = getDb();
+  await sql`
+    UPDATE news_items
+    SET ai_summary = ${analysis.ai_summary},
+        ai_category = ${analysis.ai_category},
+        ai_significance = ${analysis.ai_significance},
+        ai_implications = ${analysis.ai_implications}
+    WHERE id = ${id}
+  `;
+}
+
 // Trend operations
 export async function getAllTrends(limit: number = 20): Promise<Trend[]> {
   const sql = getDb();

@@ -101,41 +101,68 @@ export interface WeekData {
 export async function generateBriefing(weekData: WeekData): Promise<string> {
   const response = await client.messages.create({
     model: 'claude-sonnet-4-20250514',
-    max_tokens: 3000,
-    system: `You are a senior strategy analyst writing a weekly competitive intelligence briefing for the leadership team of Skan.AI, a Series B process intelligence startup.
+    max_tokens: 4000,
+    system: `You are the head of competitive intelligence at a top-tier strategy consulting firm, writing a weekly briefing for the CEO and leadership team of Skan.AI.
 
-Skan.AI differentiates through:
-- Computer vision-based, non-invasive process discovery
-- No need for system logs or IT integration
-- Works across any desktop application
-- Quick time-to-value (days vs months)
+ABOUT SKAN.AI:
+- Series B process intelligence startup (~$50M raised)
+- Unique approach: Computer vision-based process discovery (watches screens, no logs needed)
+- Key advantages: Non-invasive (no IT integration), works on any app, deploys in days not months
+- Target market: Enterprise companies wanting to understand how work actually gets done
+- Current challenges: Competing against Celonis's market dominance and Microsoft's bundling strategy
 
-The briefing should be actionable, insightful, and focused on strategic implications. Write in a professional but direct tone. Avoid jargon and be specific about recommendations.`,
+YOUR ROLE:
+You're not summarizing news - you're providing STRATEGIC INTELLIGENCE. Think like a board member:
+- What signals indicate where the market is heading?
+- What competitor moves require a response?
+- What windows of opportunity are opening or closing?
+- What would you bet money on happening in the next 6-12 months?
+
+WRITING STYLE:
+- Direct and confident - take positions, don't hedge everything
+- Specific - name names, cite evidence, give timeframes
+- Actionable - every insight should connect to a "so what" for Skan.AI
+- Contrarian where warranted - if conventional wisdom is wrong, say so`,
     messages: [
       {
         role: 'user',
-        content: `Generate a weekly competitive intelligence briefing based on this data:
+        content: `Generate an executive intelligence briefing based on this data:
 
 ${JSON.stringify(weekData, null, 2)}
 
-Structure:
-## Market Pulse
-(2-3 sentence overview of the week - what's the big picture?)
+Structure your briefing as follows:
 
-## Top Developments
-(Top 3 most significant events with analysis - be specific about why they matter)
+## Executive Summary
+(3 bullet points: The ONE thing leadership must know, the biggest threat this week, the biggest opportunity this week)
 
-## Company Updates
-(Brief update per company with notable activity - only include companies with news)
+## Market Dynamics
+(What's actually happening in the market? Cut through the PR. What are the 2nd and 3rd order effects of major announcements?)
 
-## Trends to Watch
-(Emerging patterns across the competitive landscape - connect the dots)
+## Competitive Moves That Matter
+(Focus on moves that require a RESPONSE from Skan.AI. For each:)
+- What happened
+- Why it matters (be specific about market impact)
+- Threat level: 🔴 High / 🟡 Medium / 🟢 Low
+- Recommended response
 
-## Strategic Implications for Skan.AI
-(What this means for positioning, product, and GTM - be specific and actionable)
+## Signal Detection
+(What leading indicators are you seeing? These are things that PREDICT future competitor moves:)
+- Hiring patterns suggesting new product areas
+- Partnership announcements hinting at strategy shifts
+- Messaging changes indicating repositioning
+- Funding/M&A activity suggesting consolidation
 
-## Recommended Actions
-(2-3 specific things leadership should consider this week - prioritized and concrete)`
+## Trends Requiring Strategic Response
+(Connect the dots across multiple signals. What patterns are emerging that Skan.AI needs to get ahead of?)
+
+## This Week's Priorities
+(Exactly 3 specific, actionable items ranked by urgency. Format:)
+1. [URGENT/IMPORTANT/MONITOR] Action item with specific next step
+2. ...
+3. ...
+
+## 30-Day Outlook
+(What should leadership expect to see in the next month? Make 2-3 specific predictions based on current signals.)`
       }
     ]
   });
@@ -154,7 +181,102 @@ export async function categorizeNewsItem(item: NewsItemForAnalysis): Promise<New
   }
 }
 
-// Generate a quick summary of multiple trends
+// Structured trend type for database storage
+export interface DetectedTrend {
+  title: string;
+  description: string;
+  type: 'product' | 'market' | 'hiring' | 'funding';
+  relatedCompanies: string[];
+}
+
+export interface AnalysisWithTrendsResult {
+  analyses: NewsAnalysis[];
+  trends: DetectedTrend[];
+}
+
+// Enhanced analysis that returns both news categorization and detected trends
+export async function analyzeNewsWithTrends(
+  newsItems: { id: number; title: string; content: string; source: string; company: string }[]
+): Promise<AnalysisWithTrendsResult> {
+  const response = await client.messages.create({
+    model: 'claude-sonnet-4-20250514',
+    max_tokens: 4000,
+    system: `You are a senior competitive intelligence analyst specializing in the process mining, intelligent automation, and enterprise software industry.
+
+Your client is Skan.AI, a Series B startup with these differentiators:
+- Computer vision-based, non-invasive process discovery (no system logs needed)
+- Works across any desktop application without IT integration
+- Quick time-to-value (days vs months for traditional tools)
+
+Key competitors to watch:
+- Celonis: Market leader ($13B valuation), execution management platform
+- UiPath: Public company, RPA leader expanding into process mining
+- ABBYY: Process intelligence + document AI
+- Microsoft: Process Advisor in Power Platform (bundled with enterprise licenses)
+- IBM: watsonx process mining (enterprise focus)
+- SAP Signavio: Acquired by SAP (ERP integration advantage)
+- Automation Anywhere: RPA + process discovery
+- Apromore: Open source (recently acquired by Salesforce)
+
+Analyze news with a focus on:
+1. What does this ACTUALLY mean (cut through PR spin)?
+2. Is this a leading indicator of something bigger?
+3. What should Skan.AI do about it?`,
+    messages: [
+      {
+        role: 'user',
+        content: `Analyze these news items and identify patterns/trends across them.
+
+News items:
+${JSON.stringify(newsItems.map(i => ({ title: i.title, content: i.content, source: i.source, company: i.company })), null, 2)}
+
+Provide your analysis in this exact JSON format (no markdown, no code blocks):
+{
+  "analyses": [
+    {
+      "title": "exact title from input",
+      "category": "funding|product|partnership|hiring|executive|other",
+      "significance": "high|medium|low",
+      "summary": "One sentence cutting through the PR spin - what does this actually mean?",
+      "implication": "Specific implication for Skan.AI - what should they consider doing?"
+    }
+  ],
+  "trends": [
+    {
+      "title": "Short trend title (e.g., 'AI Agent Positioning Race')",
+      "description": "2-3 sentences explaining the pattern you're seeing across multiple news items and why it matters",
+      "type": "product|market|hiring|funding",
+      "relatedCompanies": ["company1", "company2"]
+    }
+  ]
+}
+
+Rules:
+- significance=high: Major market impact, acquisition, significant funding, leadership change at key competitor
+- significance=medium: Notable product launch, partnership, or expansion
+- significance=low: Routine announcements, minor updates, PR fluff
+- Only include trends you can support with evidence from multiple news items
+- Be specific in implications - vague advice is useless`
+      }
+    ]
+  });
+
+  const text = response.content[0].type === 'text' ? response.content[0].text : '';
+
+  try {
+    // Clean up potential markdown formatting
+    const cleanedText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    return JSON.parse(cleanedText) as AnalysisWithTrendsResult;
+  } catch {
+    console.error('Failed to parse Claude analysis response:', text);
+    return {
+      analyses: [],
+      trends: []
+    };
+  }
+}
+
+// Generate a quick summary of multiple trends (legacy function)
 export async function analyzeTrends(
   newsItems: { title: string; company: string; category: string }[]
 ): Promise<string[]> {
