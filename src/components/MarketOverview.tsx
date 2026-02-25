@@ -1,13 +1,14 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Building2, Newspaper, AlertTriangle, TrendingUp } from 'lucide-react';
+import { Building2, Newspaper, AlertTriangle, TrendingUp, Briefcase } from 'lucide-react';
 
 interface Stats {
   companyCount: number;
   newsCount: number;
   highAlertCount: number;
   trendCount: number;
+  jobCount?: number;
 }
 
 interface MarketOverviewProps {
@@ -43,11 +44,18 @@ export function MarketOverview({ stats }: MarketOverviewProps) {
       icon: TrendingUp,
       color: 'text-purple-400',
       bgColor: 'bg-purple-500/10'
+    },
+    {
+      title: 'Open Jobs Tracked',
+      value: stats.jobCount || 0,
+      icon: Briefcase,
+      color: 'text-amber-400',
+      bgColor: 'bg-amber-500/10'
     }
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
       {statCards.map((stat) => {
         const Icon = stat.icon;
         return (

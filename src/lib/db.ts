@@ -344,20 +344,48 @@ export async function insertJobSignal(job: Omit<JobSignal, 'id' | 'detected_at'>
   return result[0].id;
 }
 
+export async function clearJobSignals(): Promise<void> {
+  const sql = getDb();
+  await sql`DELETE FROM job_signals`;
+}
+
+export async function getJobStats(): Promise<{
+  companyId: string;
+  totalJobs: number;
+  topDepartments: string[];
+}[]> {
+  const sql = getDb();
+  const result = await sql`
+    SELECT
+      company_id,
+      COUNT(*) as total_jobs,
+      array_agg(DISTINCT department) FILTER (WHERE department IS NOT NULL) as departments
+    FROM job_signals
+    GROUP BY company_id
+  `;
+  return result.map((row: any) => ({
+    companyId: row.company_id,
+    totalJobs: Number(row.total_jobs),
+    topDepartments: (row.departments || []).slice(0, 5),
+  }));
+}
+
 // Stats
 export async function getStats() {
   const sql = getDb();
-  const [companyResult, newsResult, highAlertResult, trendResult] = await Promise.all([
+  const [companyResult, newsResult, highAlertResult, trendResult, jobResult] = await Promise.all([
     sql`SELECT COUNT(*) as count FROM companies`,
     sql`SELECT COUNT(*) as count FROM news_items`,
     sql`SELECT COUNT(*) as count FROM news_items WHERE ai_significance = 'high'`,
-    sql`SELECT COUNT(*) as count FROM trends`
+    sql`SELECT COUNT(*) as count FROM trends`,
+    sql`SELECT COUNT(*) as count FROM job_signals`
   ]);
 
   return {
     companyCount: Number(companyResult[0].count),
     newsCount: Number(newsResult[0].count),
     highAlertCount: Number(highAlertResult[0].count),
-    trendCount: Number(trendResult[0].count)
+    trendCount: Number(trendResult[0].count),
+    jobCount: Number(jobResult[0].count)
   };
 }

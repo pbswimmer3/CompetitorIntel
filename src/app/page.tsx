@@ -40,14 +40,19 @@ export default function Dashboard() {
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
-      const response = await fetch('/api/news/refresh', { method: 'POST' });
-      if (response.ok) {
+      // Refresh news (with AI analysis) and jobs in parallel
+      const [newsResponse, jobsResponse] = await Promise.all([
+        fetch('/api/news/refresh', { method: 'POST' }),
+        fetch('/api/jobs/refresh', { method: 'POST' })
+      ]);
+
+      if (newsResponse.ok || jobsResponse.ok) {
         // Refresh all data
         await Promise.all([mutateCompanies(), mutateNews()]);
         setLastRefresh(new Date());
       }
     } catch (error) {
-      console.error('Failed to refresh news:', error);
+      console.error('Failed to refresh data:', error);
     } finally {
       setIsRefreshing(false);
     }
