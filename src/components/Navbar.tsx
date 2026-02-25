@@ -3,13 +3,14 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { Activity, Building2, FileText, TrendingUp, Briefcase, GitBranch } from 'lucide-react';
+import { Activity, Building2, FileText, TrendingUp, Briefcase, GitBranch, Scale } from 'lucide-react';
 
 const navItems = [
   { href: '/', label: 'Dashboard', icon: Activity },
   { href: '/briefing', label: 'Briefing', icon: FileText },
   { href: '/jobs', label: 'Jobs', icon: Briefcase },
   { href: '/github', label: 'GitHub', icon: GitBranch },
+  { href: '/sec', label: 'SEC Filings', icon: Scale },
 ];
 
 export function Navbar() {

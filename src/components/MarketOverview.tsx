@@ -1,7 +1,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Building2, Newspaper, AlertTriangle, TrendingUp, Briefcase, GitBranch } from 'lucide-react';
+import { Building2, Newspaper, AlertTriangle, TrendingUp, Briefcase, Scale } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 
@@ -65,12 +65,12 @@ export function MarketOverview({ stats }: MarketOverviewProps) {
       scrollTo: false
     },
     {
-      title: 'GitHub Activity',
+      title: 'SEC Filings',
       value: 'View',
-      icon: GitBranch,
-      color: 'text-purple-400',
-      bgColor: 'bg-purple-500/10',
-      href: '/github',
+      icon: Scale,
+      color: 'text-blue-400',
+      bgColor: 'bg-blue-500/10',
+      href: '/sec',
       scrollTo: false
     }
   ];
