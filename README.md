@@ -1,32 +1,66 @@
 # Competitor Intelligence Dashboard
 
-An AI-powered competitive intelligence dashboard for the **Process Mining / Process Intelligence** industry. Built with Next.js 14, TypeScript, and Claude AI.
+An AI-powered competitive intelligence platform for the **Process Mining / Process Intelligence** industry. Built with Next.js 14, TypeScript, Claude AI, and deployed on Vercel.
+
+**Live Demo**: [competitor-intel-five.vercel.app](https://competitor-intel-five.vercel.app/)
 
 ## What It Does
 
 This dashboard automatically:
 - **Tracks 9 key companies** in the process mining space (Celonis, UiPath, ABBYY, Microsoft, IBM, SAP Signavio, Automation Anywhere, Apromore, Skan.AI)
-- **Aggregates news and signals** from public sources
-- **Analyzes intelligence** using Claude AI to categorize, assess significance, and identify strategic implications
-- **Generates weekly briefings** tailored for Skan.AI leadership
-- **Identifies cross-company trends** in the competitive landscape
+- **Aggregates news from multiple sources** - Google News RSS, PR Newswire, Business Wire
+- **Analyzes every article with Claude AI** - categorization, significance rating, strategic implications
+- **Detects market trends** automatically from patterns across news items
+- **Generates executive briefings** with threat levels, predictions, and prioritized actions
+
+## Key Features
+
+### AI-Powered Analysis
+Every news article is analyzed by Claude AI to determine:
+- **Category**: funding, product, partnership, hiring, executive, other
+- **Significance**: 🔴 High / 🟡 Medium / 🟢 Low
+- **Summary**: One-line insight cutting through PR spin
+- **Implication**: Specific strategic recommendation for action
+
+### Automatic Trend Detection
+The system identifies cross-company patterns like:
+- "Vertical AI Specialization Race"
+- "Microsoft Bundling Threat Escalation"
+- "AI ROI Scrutiny Intensification"
+
+### Executive Briefings
+AI-generated strategic briefings include:
+- **Executive Summary** - THE ONE THING leadership must know
+- **Competitive Moves That Matter** - with threat levels and recommended responses
+- **Signal Detection** - leading indicators predicting future moves
+- **30-Day Outlook** - specific predictions based on current signals
+- **Prioritized Actions** - tagged [URGENT], [IMPORTANT], or [MONITOR]
 
 ## Tech Stack
 
 - **Frontend**: Next.js 14 (App Router) + TypeScript + Tailwind CSS
-- **UI Components**: shadcn/ui
+- **UI Components**: shadcn/ui (dark theme)
 - **AI**: Anthropic Claude API (claude-sonnet-4-20250514)
-- **Database**: SQLite via better-sqlite3
-- **Charts**: Recharts
-- **PDF Export**: @react-pdf/renderer
+- **Database**: Neon PostgreSQL (serverless)
+- **Deployment**: Vercel
+- **Data Sources**: Google News RSS, PR Newswire, Business Wire
 
 ## Getting Started
 
 ### Prerequisites
 - Node.js 18+
 - Anthropic API key
+- Neon PostgreSQL database (free tier available)
 
-### Installation
+### Quick Start (Windows)
+
+Double-click `start.bat` to:
+1. Install dependencies (if needed)
+2. Initialize the database (if needed)
+3. Start the dev server
+4. Open the browser
+
+### Manual Installation
 
 ```bash
 # Install dependencies
@@ -34,17 +68,26 @@ npm install
 
 # Set up environment variables
 cp .env.local.example .env.local
-# Edit .env.local and add your ANTHROPIC_API_KEY
-
-# Initialize the database with seed data
-npm run seed
-npm run seed:news
+# Edit .env.local and add:
+#   ANTHROPIC_API_KEY=your-key
+#   DATABASE_URL=your-neon-connection-string
 
 # Start the development server
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) to view the dashboard.
+
+### Deploy to Vercel
+
+1. Push to GitHub
+2. Import project in Vercel
+3. Add environment variables:
+   - `ANTHROPIC_API_KEY`
+   - `DATABASE_URL` (from Neon)
+4. Deploy
+5. Initialize database: `POST /api/init`
+6. Refresh news: Click "Refresh News" button
 
 ## Project Structure
 
@@ -55,89 +98,89 @@ src/
 │   ├── briefing/          # Weekly briefing page
 │   ├── company/[slug]/    # Company detail pages
 │   └── api/               # API routes
+│       ├── companies/     # Company data endpoints
+│       ├── news/          # News endpoints + refresh
+│       ├── trends/        # Trend detection
+│       ├── briefing/      # Briefing generation
+│       └── init/          # Database initialization
 ├── components/            # React components
 │   ├── AlertFeed.tsx      # Live intelligence feed
 │   ├── CompanyCard.tsx    # Company overview cards
 │   ├── MarketOverview.tsx # Stats dashboard
 │   ├── TrendCard.tsx      # Trend analysis display
+│   ├── BriefingGenerator.tsx # Briefing creation
 │   └── Navbar.tsx         # Navigation
-├── lib/
-│   ├── db.ts              # SQLite database wrapper
-│   ├── claude.ts          # Claude API integration
-│   └── scrapers/          # News scraping utilities
-└── data/
-    └── companies.json     # Company seed data
-
-db/
-├── schema.sql             # Database schema
-└── intel.db               # SQLite database (created on first run)
-
-scripts/
-├── seed.ts                # Seed companies
-└── seed-news.ts           # Seed mock news data
+└── lib/
+    ├── db.ts              # Neon PostgreSQL wrapper
+    ├── claude.ts          # Claude AI integration
+    └── scrapers/
+        └── news.ts        # Multi-source news scraping
 ```
-
-## Features
-
-### Dashboard (/)
-- Market overview with key metrics
-- Live intelligence feed with significance ratings
-- Emerging trends detection
-- Company cards grid
-
-### Company Detail (/company/[slug])
-- Company profile and metadata
-- News timeline with AI analysis
-- Hiring signals and job postings
-- Strategic implications
-
-### Weekly Briefing (/briefing)
-- AI-generated executive summary
-- Top developments analysis
-- Company-by-company updates
-- Strategic recommendations
 
 ## API Routes
 
 | Route | Method | Description |
 |-------|--------|-------------|
-| `/api/companies` | GET | List all tracked companies |
-| `/api/companies/[slug]` | GET | Single company with news |
-| `/api/news` | GET | All news items (filterable) |
-| `/api/trends` | GET | Detected trends |
-| `/api/briefing` | GET | Fetch briefings |
-| `/api/briefing` | POST | Generate new briefing |
-| `/api/analyze` | POST | Analyze news with Claude |
+| `/api/companies` | GET | List all tracked companies with stats |
+| `/api/companies/[slug]` | GET | Single company with news and jobs |
+| `/api/news` | GET | All news items (filterable by company, category) |
+| `/api/news/refresh` | POST | Fetch new articles + AI analysis + trend detection |
+| `/api/trends` | GET | Detected market trends |
+| `/api/briefing` | GET | Fetch all briefings |
+| `/api/briefing` | POST | Generate new executive briefing |
+| `/api/init` | POST | Initialize database schema and seed companies |
 
-## Scripts
+## Data Sources
 
-```bash
-npm run dev          # Start development server
-npm run build        # Build for production
-npm run start        # Start production server
-npm run seed         # Seed companies data
-npm run seed:news    # Seed mock news data
-npm run lint         # Run ESLint
-```
+| Source | Type | What It Provides |
+|--------|------|------------------|
+| Google News RSS | News | General news coverage for each company |
+| PR Newswire | Press Releases | Official company announcements |
+| Business Wire | Press Releases | Official company announcements |
 
-## Demo Data
+## Screenshots
 
-The project comes pre-seeded with realistic mock data including:
-- 9 companies with detailed profiles
-- 21 news items with AI analysis
-- 4 emerging trends
-- 12 job signals
+### Dashboard
+- Market overview with key metrics
+- Live intelligence feed with AI-analyzed significance ratings
+- Emerging trends detected across companies
+- Company cards with latest activity
 
-This allows the dashboard to look populated and professional for demonstrations.
+### Executive Briefing
+- AI-generated strategic analysis
+- Threat levels for competitive moves
+- Prioritized action items
+- 30-day market predictions
+
+## Roadmap
+
+### Phase 2 (In Progress)
+- [ ] Job posting scraping (Greenhouse/Lever APIs)
+- [ ] GitHub activity tracking for public repos
+
+### Phase 3 (Planned)
+- [ ] SEC filing analysis for public companies (UiPath, IBM, Microsoft, SAP)
+
+### Future Ideas
+- Patent filing monitoring (USPTO)
+- G2/Capterra review sentiment
+- Website change detection (pricing pages)
+- LinkedIn employee count trends
 
 ## Why This Project
 
 This is a portfolio project demonstrating:
-1. **AI-powered business automation** - Using Claude to replace manual competitive research
-2. **Agentic workflow patterns** - Data collection, AI analysis, structured output, reporting
-3. **Modern full-stack development** - Next.js 14, TypeScript, Tailwind, SQLite
-4. **Domain expertise** - Deep understanding of the process mining competitive landscape
+
+1. **AI-Powered Business Intelligence** - Using Claude to transform raw news into strategic insights
+2. **Multi-Source Data Aggregation** - Combining news, press releases, and (soon) job postings
+3. **Automatic Pattern Detection** - Identifying market trends across multiple signals
+4. **Production Deployment** - Full CI/CD with Vercel and serverless PostgreSQL
+5. **Domain Expertise** - Deep understanding of the process mining competitive landscape
+
+## License
+
+MIT
 
 ---
 
-Built with Claude Code
+Built with [Claude Code](https://claude.ai/claude-code)
