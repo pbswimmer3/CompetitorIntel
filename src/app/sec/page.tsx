@@ -106,6 +106,8 @@ export default function SECPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   // Track which filings are currently being analyzed { [accessionNumber]: boolean }
   const [analyzingFilings, setAnalyzingFilings] = useState<Record<string, boolean>>({});
+  // Track filings that failed to analyze { [accessionNumber]: boolean }
+  const [failedFilings, setFailedFilings] = useState<Record<string, boolean>>({});
   // Track locally-added analysis results before SWR refetches
   const [localAnalyses, setLocalAnalyses] = useState<Record<string, StoredAnalysis>>({});
   // Track which filing summaries are expanded
@@ -164,9 +166,12 @@ export default function SECPage() {
         setLocalAnalyses(prev => ({ ...prev, [key]: data.analysis }));
         setExpandedFilings(prev => ({ ...prev, [key]: true }));
         mutateAnalyses();
+      } else {
+        setFailedFilings(prev => ({ ...prev, [key]: true }));
       }
     } catch (error) {
       console.error('Failed to analyze filing:', error);
+      setFailedFilings(prev => ({ ...prev, [key]: true }));
     } finally {
       setAnalyzingFilings(prev => ({ ...prev, [key]: false }));
     }
@@ -292,6 +297,7 @@ export default function SECPage() {
                     const companyInfo = getCompanyInfo(filing.companyId);
                     const filingKey = filing.accessionNumber;
                     const isAnalyzing = analyzingFilings[filingKey];
+                    const hasFailed = failedFilings[filingKey];
                     const storedAnalysis = storedAnalyses[filingKey];
                     const isExpanded = expandedFilings[filingKey];
                     const canAnalyze = ANALYZABLE_TYPES.includes(filing.filingType) && filing.documentUrl;
@@ -366,14 +372,25 @@ export default function SECPage() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                className="h-7 px-3 text-xs gap-1.5"
+                                className={cn(
+                                  "h-7 px-3 text-xs gap-1.5",
+                                  hasFailed && "border-red-500/30 text-red-400"
+                                )}
                                 disabled={isAnalyzing}
-                                onClick={() => handleAnalyze(filing)}
+                                onClick={() => {
+                                  setFailedFilings(prev => ({ ...prev, [filingKey]: false }));
+                                  handleAnalyze(filing);
+                                }}
                               >
                                 {isAnalyzing ? (
                                   <>
                                     <RefreshCw className="w-3 h-3 animate-spin" />
                                     Analyzing...
+                                  </>
+                                ) : hasFailed ? (
+                                  <>
+                                    <AlertCircle className="w-3 h-3" />
+                                    Retry
                                   </>
                                 ) : (
                                   <>

@@ -401,9 +401,26 @@ export async function getAllJobSignals(): Promise<JobSignal[]> {
   return result as JobSignal[];
 }
 
+// Ensures the sec_filing_analyses table exists — self-healing for DBs created before this table was added
+async function ensureSecFilingAnalysesTable(sql: ReturnType<typeof getDb>): Promise<void> {
+  await sql`
+    CREATE TABLE IF NOT EXISTS sec_filing_analyses (
+      id SERIAL PRIMARY KEY,
+      company_id TEXT REFERENCES companies(id),
+      filing_id TEXT UNIQUE,
+      form_type TEXT,
+      filed_date TEXT,
+      document_url TEXT,
+      ai_summary TEXT,
+      analyzed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `;
+}
+
 // SEC filing analysis operations
 export async function getSecFilingAnalysis(filingId: string): Promise<SecFilingAnalysis | undefined> {
   const sql = getDb();
+  await ensureSecFilingAnalysesTable(sql);
   const result = await sql`SELECT * FROM sec_filing_analyses WHERE filing_id = ${filingId}`;
   return result[0] as SecFilingAnalysis | undefined;
 }
@@ -412,6 +429,7 @@ export async function insertSecFilingAnalysis(
   analysis: Omit<SecFilingAnalysis, 'id' | 'analyzed_at'>
 ): Promise<number> {
   const sql = getDb();
+  await ensureSecFilingAnalysesTable(sql);
   const result = await sql`
     INSERT INTO sec_filing_analyses (company_id, filing_id, form_type, filed_date, document_url, ai_summary)
     VALUES (${analysis.company_id}, ${analysis.filing_id}, ${analysis.form_type}, ${analysis.filed_date}, ${analysis.document_url}, ${analysis.ai_summary})
@@ -423,6 +441,7 @@ export async function insertSecFilingAnalysis(
 
 export async function getAllSecFilingAnalyses(limit: number = 20): Promise<SecFilingAnalysis[]> {
   const sql = getDb();
+  await ensureSecFilingAnalysesTable(sql);
   const result = await sql`
     SELECT * FROM sec_filing_analyses
     ORDER BY analyzed_at DESC
@@ -433,6 +452,7 @@ export async function getAllSecFilingAnalyses(limit: number = 20): Promise<SecFi
 
 export async function getSecFilingAnalysesByCompany(companyId: string): Promise<SecFilingAnalysis[]> {
   const sql = getDb();
+  await ensureSecFilingAnalysesTable(sql);
   const result = await sql`
     SELECT * FROM sec_filing_analyses
     WHERE company_id = ${companyId}
