@@ -60,19 +60,17 @@ function getSignalType(signal: string): string {
 
 export default function JobsPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [selectedCompany, setSelectedCompany] = useState<string | null>(null);
 
   const { data: companiesData } = useSWR('/api/companies', fetcher);
-  const { data: jobsData, mutate: mutateJobs } = useSWR(
-    selectedCompany ? `/api/companies/${selectedCompany}` : null,
-    fetcher
-  );
+  // Load persisted job data on mount; mutate after a refresh
+  const { data: persistedJobsData, mutate: mutateJobs } = useSWR('/api/jobs', fetcher);
 
   const companies: Company[] = companiesData?.companies || [];
   const stats = companiesData?.stats || { jobCount: 0 };
 
-  // Fetch job analysis when refreshing
-  const [analysisData, setAnalysisData] = useState<any>(null);
+  // Live refresh data (POST response) overrides persisted data while in session
+  const [refreshData, setRefreshData] = useState<any>(null);
+  const activeData = refreshData || persistedJobsData;
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -80,8 +78,8 @@ export default function JobsPage() {
       const response = await fetch('/api/jobs/refresh', { method: 'POST' });
       if (response.ok) {
         const data = await response.json();
-        setAnalysisData(data);
-        mutateJobs();
+        setRefreshData(data);
+        mutateJobs(); // update the SWR cache so next mount loads fresh data
       }
     } catch (error) {
       console.error('Failed to refresh jobs:', error);
@@ -90,12 +88,12 @@ export default function JobsPage() {
     }
   };
 
-  // Group jobs by company from analysis
-  const companyAnalyses = analysisData?.analyses || [];
-  const companyResults = analysisData?.results || [];
+  // Group jobs by company from active data
+  const companyAnalyses = activeData?.analyses || [];
+  const companyResults = activeData?.results || [];
 
   // Calculate aggregated insights
-  const totalJobs = analysisData?.totalJobs || stats.jobCount || 0;
+  const totalJobs = activeData?.totalJobs || stats.jobCount || 0;
   const allSignals = companyAnalyses.flatMap((a: any) => a.signals || []);
   const uniqueSignals = [...new Set(allSignals)];
 
@@ -190,7 +188,7 @@ export default function JobsPage() {
               {companyAnalyses.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <Briefcase className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p>Click &quot;Refresh Job Data&quot; to scan competitor job boards</p>
+                  <p>No job data yet. Click &quot;Refresh Job Data&quot; to scan competitor job boards</p>
                 </div>
               ) : (
                 <div className="space-y-4">

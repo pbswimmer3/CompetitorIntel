@@ -96,6 +96,17 @@ export interface WeekData {
   }[];
   highPriorityAlerts: number;
   totalNewsCount: number;
+  jobSignals?: {
+    company: string;
+    totalOpenings: number;
+    signals: string[];
+  }[];
+  secFilingInsights?: {
+    company: string;
+    formType: string;
+    filedDate: string;
+    summary: string;
+  }[];
 }
 
 export async function generateBriefing(weekData: WeekData): Promise<string> {
@@ -128,7 +139,18 @@ WRITING STYLE:
         role: 'user',
         content: `Generate an executive intelligence briefing based on this data:
 
-${JSON.stringify(weekData, null, 2)}
+## News Intelligence (${weekData.totalNewsCount} articles, ${weekData.highPriorityAlerts} high-priority)
+${JSON.stringify(weekData.newsItems, null, 2)}
+
+## Detected Market Trends
+${JSON.stringify(weekData.trends, null, 2)}
+${weekData.jobSignals && weekData.jobSignals.length > 0 ? `
+## Job Signal Intelligence
+${weekData.jobSignals.map(j => `- ${j.company}: ${j.totalOpenings} open roles${j.signals.length > 0 ? ` | Signals: ${j.signals.join(', ')}` : ''}`).join('\n')}
+` : ''}${weekData.secFilingInsights && weekData.secFilingInsights.length > 0 ? `
+## SEC Filing Intelligence (AI-Analyzed)
+${weekData.secFilingInsights.map(s => `- ${s.company} ${s.formType} (filed ${s.filedDate}): ${s.summary}`).join('\n\n')}
+` : ''}
 
 Structure your briefing as follows:
 
@@ -274,6 +296,44 @@ Rules:
       trends: []
     };
   }
+}
+
+// Analyze a SEC filing document and return competitive intelligence summary
+export async function analyzeSecFiling(
+  content: string,
+  companyName: string,
+  formType: string
+): Promise<string> {
+  const response = await client.messages.create({
+    model: 'claude-sonnet-4-20250514',
+    max_tokens: 1500,
+    system: `You are a competitive intelligence analyst for Skan.AI, a Series B computer vision-based process intelligence startup. You analyze SEC filings to extract strategic intelligence relevant to the process mining and enterprise automation market.
+
+Key competitors tracked: Celonis, UiPath, ABBYY, Microsoft, IBM, SAP Signavio, Automation Anywhere, Apromore.
+
+Your job is to cut through the regulatory language and surface what actually matters for a competitor watching this company.`,
+    messages: [
+      {
+        role: 'user',
+        content: `Analyze this ${formType} filing from ${companyName} and provide competitive intelligence.
+
+Filing content (key sections):
+${content.slice(0, 60000)}
+
+Provide a structured analysis covering:
+1. **Revenue & Growth Signals** - What do the numbers say about their business momentum?
+2. **Product & Technology Strategy** - What are they building or investing in?
+3. **Competitive Positioning** - How do they describe their competition? Who do they name?
+4. **Market Expansion** - New geographies, verticals, or customer segments?
+5. **Risk Factors That Reveal Strategy** - What threats do they acknowledge that reveal their strategic concerns?
+6. **Implication for Skan.AI** - The 1-2 most actionable insights for Skan.AI's strategy
+
+Be specific and direct. Cite specific phrases or data from the filing where possible. Keep the total response to 400-600 words.`
+      }
+    ]
+  });
+
+  return response.content[0].type === 'text' ? response.content[0].text : '';
 }
 
 // Generate a quick summary of multiple trends (legacy function)

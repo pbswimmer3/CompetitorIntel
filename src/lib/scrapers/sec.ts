@@ -4,6 +4,7 @@ export interface SECFiling {
   companyId: string;
   companyName: string;
   cik: string;
+  accessionNumber: string;
   filingType: '10-K' | '10-Q' | '8-K' | 'DEF 14A' | 'other';
   filingDate: string;
   reportDate: string | null;
@@ -104,6 +105,7 @@ function parseFilings(
       companyId,
       companyName,
       cik,
+      accessionNumber: recent.accessionNumber[i],
       filingType: form as SECFiling['filingType'],
       filingDate,
       reportDate,
@@ -226,4 +228,69 @@ export function getPublicCompanies(): string[] {
 // Check if a company is public
 export function isPublicCompany(companyId: string): boolean {
   return companyId in companyCIKs;
+}
+
+// Fetch a SEC document and return plain text
+export async function fetchSECDocumentText(documentUrl: string): Promise<string> {
+  const response = await fetch(documentUrl, { headers: SEC_HEADERS });
+
+  if (!response.ok) {
+    throw new Error(`SEC document fetch failed: ${response.status}`);
+  }
+
+  const html = await response.text();
+
+  // Strip HTML to plain text
+  const text = html
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#\d+;/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+
+  return text;
+}
+
+// Extract the text between two item markers (e.g. ITEM 1 to ITEM 1A)
+function extractBetweenItems(text: string, startItem: string, endItem: string): string {
+  // Match "Item 1." / "ITEM 1." / "Item 1 " etc.
+  const startRegex = new RegExp(`(?:^|\\s)ITEM\\s+${startItem}[.\\s]`, 'i');
+  const endRegex = new RegExp(`(?:^|\\s)ITEM\\s+${endItem}[.\\s]`, 'i');
+
+  const startIdx = text.search(startRegex);
+  if (startIdx === -1) return '';
+
+  const remainder = text.slice(startIdx);
+  const endIdx = remainder.search(endRegex);
+
+  const section = endIdx === -1 ? remainder : remainder.slice(0, endIdx);
+  return section.slice(0, 25000); // cap each section at 25k chars
+}
+
+// Extract competitive-intelligence-relevant sections based on filing type
+export function extractFilingSections(text: string, formType: string): string {
+  if (formType === '8-K') {
+    // 8-Ks are short – return the full text (capped)
+    return text.slice(0, 50000);
+  }
+
+  if (formType === '10-Q') {
+    // Item 2: MD&A; Item 3: Quantitative disclosures (less useful)
+    const mda = extractBetweenItems(text, '2', '3');
+    return mda || text.slice(0, 40000);
+  }
+
+  // 10-K: Items 1 (Business), 1A (Risk Factors), 7 (MD&A)
+  const item1 = extractBetweenItems(text, '1', '1A');
+  const item1A = extractBetweenItems(text, '1A', '1B');
+  const item7 = extractBetweenItems(text, '7', '7A');
+
+  const combined = [item1, item1A, item7].filter(Boolean).join('\n\n---\n\n');
+  return combined || text.slice(0, 60000);
 }

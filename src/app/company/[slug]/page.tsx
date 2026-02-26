@@ -4,7 +4,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { getCompanyBySlug, getNewsByCompany, getJobsByCompany } from '@/lib/db';
+import {
+  getCompanyBySlug,
+  getNewsByCompany,
+  getJobsByCompany,
+  getSecFilingAnalysesByCompany,
+} from '@/lib/db';
+import { fetchCompanySEC, isPublicCompany } from '@/lib/scrapers/sec';
+import { fetchCompanyGitHub } from '@/lib/scrapers/github';
 import { format, formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import {
@@ -21,7 +28,13 @@ import {
   TrendingUp,
   Handshake,
   UserCheck,
-  MoreHorizontal
+  MoreHorizontal,
+  Scale,
+  FileText,
+  CheckCircle2,
+  Star,
+  GitBranch,
+  Activity,
 } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
@@ -57,6 +70,13 @@ const categoryIcons = {
   other: MoreHorizontal
 };
 
+const filingTypeColors: Record<string, string> = {
+  '10-K': 'text-blue-400 bg-blue-500/10 border-blue-500/30',
+  '10-Q': 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30',
+  '8-K': 'text-amber-400 bg-amber-500/10 border-amber-500/30',
+  'DEF 14A': 'text-purple-400 bg-purple-500/10 border-purple-500/30',
+};
+
 export default async function CompanyPage({ params }: Props) {
   const { slug } = await params;
   const company = await getCompanyBySlug(slug);
@@ -65,10 +85,25 @@ export default async function CompanyPage({ params }: Props) {
     notFound();
   }
 
-  const [news, jobs] = await Promise.all([
+  const [news, jobs, secAnalyses] = await Promise.all([
     getNewsByCompany(company.id),
-    getJobsByCompany(company.id)
+    getJobsByCompany(company.id),
+    getSecFilingAnalysesByCompany(company.id),
   ]);
+
+  // Fetch live SEC filings for public companies (4 companies only)
+  const secInfo = isPublicCompany(company.id)
+    ? await fetchCompanySEC(company).catch(() => null)
+    : null;
+
+  // Fetch GitHub activity (best-effort, may be rate-limited)
+  const githubActivity = await fetchCompanyGitHub(company).catch(() => null);
+
+  // Build a map of filing_id -> AI summary for quick lookup
+  const analysisMap: Record<string, string> = {};
+  for (const a of secAnalyses) {
+    analysisMap[a.filing_id] = a.ai_summary;
+  }
 
   return (
     <div className="space-y-8">
@@ -209,10 +244,72 @@ export default async function CompanyPage({ params }: Props) {
               })}
             </div>
           )}
+
+          {/* SEC Filings Section (public companies only) */}
+          {secInfo && (
+            <div className="space-y-4 pt-2">
+              <h2 className="text-xl font-semibold flex items-center gap-2">
+                <Scale className="w-5 h-5 text-blue-400" />
+                Regulatory Filings
+              </h2>
+              <Card className="bg-card border-border">
+                <CardContent className="p-4 space-y-3">
+                  {secInfo.recentFilings.slice(0, 8).map((filing, idx) => {
+                    const colorClass = filingTypeColors[filing.filingType] || 'text-muted-foreground bg-muted';
+                    const hasAnalysis = !!analysisMap[filing.accessionNumber];
+
+                    return (
+                      <div key={idx} className="space-y-2">
+                        <div className="flex items-center gap-3">
+                          <Badge variant="outline" className={cn('shrink-0 font-mono text-xs', colorClass)}>
+                            {filing.filingType}
+                          </Badge>
+                          <span className="text-sm flex-1">
+                            {format(new Date(filing.filingDate), 'MMM d, yyyy')}
+                          </span>
+                          {hasAnalysis && (
+                            <Badge variant="outline" className="text-xs bg-emerald-500/10 text-emerald-400 border-emerald-500/30">
+                              <CheckCircle2 className="w-3 h-3 mr-1" />
+                              Analyzed
+                            </Badge>
+                          )}
+                          {filing.documentUrl && (
+                            <a
+                              href={filing.documentUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-muted-foreground hover:text-primary"
+                            >
+                              <ExternalLink className="w-3 h-3" />
+                            </a>
+                          )}
+                        </div>
+                        {hasAnalysis && (
+                          <div className="ml-12 text-xs text-muted-foreground bg-muted/30 p-3 rounded border border-border line-clamp-3">
+                            {analysisMap[filing.accessionNumber]}
+                          </div>
+                        )}
+                        {idx < secInfo.recentFilings.slice(0, 8).length - 1 && (
+                          <Separator className="mt-2" />
+                        )}
+                      </div>
+                    );
+                  })}
+                  <div className="pt-1">
+                    <Link href="/sec" className="text-xs text-primary hover:underline flex items-center gap-1">
+                      <FileText className="w-3 h-3" />
+                      View all filings and analyze with AI →
+                    </Link>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </div>
 
-        {/* Job Signals - 1 column */}
+        {/* Sidebar */}
         <div className="space-y-4">
+          {/* Job Signals */}
           <h2 className="text-xl font-semibold flex items-center gap-2">
             <Briefcase className="w-5 h-5 text-amber-400" />
             Hiring Signals
@@ -222,7 +319,7 @@ export default async function CompanyPage({ params }: Props) {
             <CardContent className="p-4">
               {jobs.length === 0 ? (
                 <p className="text-center text-muted-foreground py-8">
-                  No job signals detected.
+                  No job signals detected. Refresh job data from the Jobs page.
                 </p>
               ) : (
                 <div className="space-y-3">
@@ -253,6 +350,70 @@ export default async function CompanyPage({ params }: Props) {
             </CardContent>
           </Card>
 
+          {/* GitHub Activity */}
+          {githubActivity && (
+            <div className="space-y-3">
+              <h2 className="text-xl font-semibold flex items-center gap-2">
+                <GitBranch className="w-5 h-5 text-purple-400" />
+                GitHub Activity
+              </h2>
+              <Card className="bg-card border-border">
+                <CardContent className="p-4 space-y-4">
+                  {/* Stats */}
+                  <div className="grid grid-cols-2 gap-3 text-center">
+                    <div className="p-2 rounded-lg bg-muted/50">
+                      <div className="text-xl font-bold">{githubActivity.totalPublicRepos}</div>
+                      <div className="text-xs text-muted-foreground">Public Repos</div>
+                    </div>
+                    <div className="p-2 rounded-lg bg-muted/50">
+                      <div className="text-xl font-bold">{githubActivity.totalStars.toLocaleString()}</div>
+                      <div className="text-xs text-muted-foreground">Total Stars</div>
+                    </div>
+                  </div>
+
+                  {/* Signals */}
+                  {githubActivity.signals.length > 0 && (
+                    <div className="space-y-1">
+                      {githubActivity.signals.map((signal, idx) => (
+                        <div key={idx} className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <Activity className="w-3 h-3 text-purple-400 shrink-0" />
+                          {signal}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Top repos */}
+                  {githubActivity.topRepos.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Top Repositories</p>
+                      {githubActivity.topRepos.slice(0, 4).map((repo) => (
+                        <a
+                          key={repo.fullName}
+                          href={repo.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-between p-2 rounded-lg border border-border hover:bg-muted/50 transition-colors"
+                        >
+                          <div className="min-w-0">
+                            <p className="text-xs font-medium truncate">{repo.name}</p>
+                            {repo.description && (
+                              <p className="text-xs text-muted-foreground truncate">{repo.description}</p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground shrink-0 ml-2">
+                            <Star className="w-3 h-3" />
+                            {repo.stars}
+                          </div>
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
           {/* Quick Stats */}
           <Card className="bg-card border-border">
             <CardHeader className="pb-3">
@@ -277,6 +438,24 @@ export default async function CompanyPage({ params }: Props) {
                 <span className="text-sm text-muted-foreground">Open Roles</span>
                 <span className="font-medium">{jobs.length}</span>
               </div>
+              {secInfo && (
+                <>
+                  <Separator />
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">SEC Filings</span>
+                    <span className="font-medium">{secInfo.recentFilings.length}</span>
+                  </div>
+                </>
+              )}
+              {secAnalyses.length > 0 && (
+                <>
+                  <Separator />
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Filings Analyzed</span>
+                    <span className="font-medium text-emerald-400">{secAnalyses.length}</span>
+                  </div>
+                </>
+              )}
               {company.valuation && (
                 <>
                   <Separator />

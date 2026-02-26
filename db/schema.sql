@@ -56,6 +56,17 @@ CREATE TABLE IF NOT EXISTS job_signals (
     detected_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS sec_filing_analyses (
+    id SERIAL PRIMARY KEY,
+    company_id TEXT REFERENCES companies(id),
+    filing_id TEXT UNIQUE NOT NULL,
+    form_type TEXT,
+    filed_date TEXT,
+    document_url TEXT,
+    ai_summary TEXT,
+    analyzed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Indexes for common queries
 CREATE INDEX IF NOT EXISTS idx_news_company ON news_items(company_id);
 CREATE INDEX IF NOT EXISTS idx_news_published ON news_items(published_at DESC);

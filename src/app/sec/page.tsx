@@ -14,7 +14,11 @@ import {
   TrendingUp,
   DollarSign,
   Users,
-  Scale
+  Scale,
+  Sparkles,
+  ChevronDown,
+  ChevronUp,
+  CheckCircle2,
 } from 'lucide-react';
 import useSWR from 'swr';
 import Link from 'next/link';
@@ -27,6 +31,7 @@ interface SECFiling {
   companyId: string;
   companyName: string;
   cik: string;
+  accessionNumber: string;
   filingType: '10-K' | '10-Q' | '8-K' | 'DEF 14A' | 'other';
   filingDate: string;
   reportDate: string | null;
@@ -50,6 +55,17 @@ interface Company {
   id: string;
   name: string;
   slug: string;
+}
+
+interface StoredAnalysis {
+  id: number;
+  company_id: string;
+  filing_id: string;
+  form_type: string;
+  filed_date: string;
+  document_url: string | null;
+  ai_summary: string;
+  analyzed_at: string;
 }
 
 // Filing type styling
@@ -84,18 +100,34 @@ function getFilingConfig(filingType: string) {
   };
 }
 
+const ANALYZABLE_TYPES = ['10-K', '10-Q', '8-K'];
+
 export default function SECPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [selectedCompany, setSelectedCompany] = useState<string | null>(null);
+  // Track which filings are currently being analyzed { [accessionNumber]: boolean }
+  const [analyzingFilings, setAnalyzingFilings] = useState<Record<string, boolean>>({});
+  // Track locally-added analysis results before SWR refetches
+  const [localAnalyses, setLocalAnalyses] = useState<Record<string, StoredAnalysis>>({});
+  // Track which filing summaries are expanded
+  const [expandedFilings, setExpandedFilings] = useState<Record<string, boolean>>({});
 
   const { data: companiesData } = useSWR('/api/companies', fetcher);
   const { data: secData, mutate: mutateSEC } = useSWR('/api/sec', fetcher);
+  const { data: analysesData, mutate: mutateAnalyses } = useSWR('/api/sec/analyze', fetcher);
 
   const companies: Company[] = companiesData?.companies || [];
   const secCompanies: SECCompanyInfo[] = secData?.companies || [];
   const publicCompanyCount = secData?.publicCompanyCount || 0;
   const totalFilings = secData?.totalFilings || 0;
   const recentMaterialEvents = secData?.recentMaterialEvents || 0;
+
+  // Build a map of filing_id -> stored analysis
+  const storedAnalyses: Record<string, StoredAnalysis> = {};
+  for (const a of (analysesData?.analyses || [])) {
+    storedAnalyses[a.filing_id] = a;
+  }
+  // Merge locally-added results
+  Object.assign(storedAnalyses, localAnalyses);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -108,7 +140,38 @@ export default function SECPage() {
     }
   };
 
-  // Get company name and slug from ID
+  const handleAnalyze = async (filing: SECFiling) => {
+    const key = filing.accessionNumber;
+    setAnalyzingFilings(prev => ({ ...prev, [key]: true }));
+
+    try {
+      const companyInfo = getCompanyInfo(filing.companyId);
+      const response = await fetch('/api/sec/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          companyId: filing.companyId,
+          companyName: companyInfo.name,
+          filingId: filing.accessionNumber,
+          docUrl: filing.documentUrl,
+          formType: filing.filingType,
+          filedDate: filing.filingDate,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setLocalAnalyses(prev => ({ ...prev, [key]: data.analysis }));
+        setExpandedFilings(prev => ({ ...prev, [key]: true }));
+        mutateAnalyses();
+      }
+    } catch (error) {
+      console.error('Failed to analyze filing:', error);
+    } finally {
+      setAnalyzingFilings(prev => ({ ...prev, [key]: false }));
+    }
+  };
+
   const getCompanyInfo = (companyId: string) => {
     const company = companies.find(c => c.id === companyId);
     return {
@@ -123,10 +186,6 @@ export default function SECPage() {
     .sort((a, b) => new Date(b.filingDate).getTime() - new Date(a.filingDate).getTime())
     .slice(0, 15);
 
-  // Get recent 8-K filings (material events)
-  const materialEvents = allRecentFilings.filter(f => f.filingType === '8-K');
-
-  // Companies with most recent activity
   const activeCompanies = secCompanies
     .map(c => ({
       ...c,
@@ -135,6 +194,8 @@ export default function SECPage() {
       ).length
     }))
     .sort((a, b) => b.recentCount - a.recentCount);
+
+  const analyzedCount = Object.keys(storedAnalyses).length;
 
   return (
     <div className="space-y-8">
@@ -146,7 +207,7 @@ export default function SECPage() {
             SEC Filing Intelligence
           </h1>
           <p className="text-muted-foreground mt-1">
-            Track regulatory filings and material events from public competitors
+            Track regulatory filings and generate AI competitive intelligence from public competitors
           </p>
         </div>
         <Button onClick={handleRefresh} disabled={isRefreshing} className="gap-2">
@@ -196,18 +257,12 @@ export default function SECPage() {
         <Card className="bg-card border-border">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Most Active
+              AI Analyses
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-xl font-bold truncate">
-              {activeCompanies[0]?.name || '-'}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {activeCompanies[0]?.recentCount
-                ? `${activeCompanies[0].recentCount} filings this month`
-                : 'Refresh to see data'}
-            </p>
+            <div className="text-3xl font-bold">{analyzedCount}</div>
+            <p className="text-xs text-muted-foreground mt-1">Filings analyzed by Claude</p>
           </CardContent>
         </Card>
       </div>
@@ -231,52 +286,121 @@ export default function SECPage() {
                   <p>Click &quot;Refresh SEC Data&quot; to fetch filings from SEC EDGAR</p>
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-4">
                   {allRecentFilings.map((filing, idx) => {
                     const config = getFilingConfig(filing.filingType);
                     const companyInfo = getCompanyInfo(filing.companyId);
+                    const filingKey = filing.accessionNumber;
+                    const isAnalyzing = analyzingFilings[filingKey];
+                    const storedAnalysis = storedAnalyses[filingKey];
+                    const isExpanded = expandedFilings[filingKey];
+                    const canAnalyze = ANALYZABLE_TYPES.includes(filing.filingType) && filing.documentUrl;
 
                     return (
                       <div
                         key={`${filing.companyId}-${filing.filingType}-${filing.filingDate}-${idx}`}
-                        className="flex items-start gap-4 p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors"
+                        className="rounded-lg border border-border overflow-hidden"
                       >
-                        <Badge
-                          variant="outline"
-                          className={cn("shrink-0 font-mono text-xs", config.bgColor, config.color)}
-                        >
-                          {filing.filingType}
-                        </Badge>
-                        <div className="flex-1 min-w-0 space-y-1">
-                          <div className="flex items-center gap-2">
-                            <Link
-                              href={`/company/${companyInfo.slug}`}
-                              className="font-medium text-sm hover:text-primary transition-colors"
-                            >
-                              {companyInfo.name}
-                            </Link>
-                            {filing.documentUrl && (
-                              <a
-                                href={filing.documentUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-muted-foreground hover:text-primary"
+                        {/* Filing header row */}
+                        <div className="flex items-start gap-4 p-3 hover:bg-muted/30 transition-colors">
+                          <Badge
+                            variant="outline"
+                            className={cn("shrink-0 font-mono text-xs mt-0.5", config.bgColor, config.color)}
+                          >
+                            {filing.filingType}
+                          </Badge>
+                          <div className="flex-1 min-w-0 space-y-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <Link
+                                href={`/company/${companyInfo.slug}`}
+                                className="font-medium text-sm hover:text-primary transition-colors"
                               >
-                                <ExternalLink className="w-3 h-3" />
-                              </a>
+                                {companyInfo.name}
+                              </Link>
+                              {filing.documentUrl && (
+                                <a
+                                  href={filing.documentUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-muted-foreground hover:text-primary"
+                                >
+                                  <ExternalLink className="w-3 h-3" />
+                                </a>
+                              )}
+                              {storedAnalysis && (
+                                <Badge variant="outline" className="text-xs bg-emerald-500/10 text-emerald-400 border-emerald-500/30">
+                                  <CheckCircle2 className="w-3 h-3 mr-1" />
+                                  AI Analyzed
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground line-clamp-1">
+                              {config.description}: {filing.description}
+                            </p>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <Calendar className="w-3 h-3" />
+                              <span>
+                                Filed {format(new Date(filing.filingDate), 'MMM d, yyyy')}
+                                {' '}({formatDistanceToNow(new Date(filing.filingDate), { addSuffix: true })})
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Action buttons */}
+                          <div className="flex items-center gap-2 shrink-0">
+                            {storedAnalysis && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 px-2 text-xs"
+                                onClick={() => setExpandedFilings(prev => ({ ...prev, [filingKey]: !isExpanded }))}
+                              >
+                                {isExpanded ? (
+                                  <ChevronUp className="w-3 h-3" />
+                                ) : (
+                                  <ChevronDown className="w-3 h-3" />
+                                )}
+                              </Button>
+                            )}
+                            {canAnalyze && !storedAnalysis && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 px-3 text-xs gap-1.5"
+                                disabled={isAnalyzing}
+                                onClick={() => handleAnalyze(filing)}
+                              >
+                                {isAnalyzing ? (
+                                  <>
+                                    <RefreshCw className="w-3 h-3 animate-spin" />
+                                    Analyzing...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Sparkles className="w-3 h-3 text-amber-400" />
+                                    Analyze
+                                  </>
+                                )}
+                              </Button>
                             )}
                           </div>
-                          <p className="text-xs text-muted-foreground line-clamp-1">
-                            {config.description}: {filing.description}
-                          </p>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <Calendar className="w-3 h-3" />
-                            <span>
-                              Filed {format(new Date(filing.filingDate), 'MMM d, yyyy')}
-                              {' '}({formatDistanceToNow(new Date(filing.filingDate), { addSuffix: true })})
-                            </span>
-                          </div>
                         </div>
+
+                        {/* Expanded AI Summary */}
+                        {storedAnalysis && isExpanded && (
+                          <div className="border-t border-border bg-muted/20 p-4">
+                            <div className="flex items-center gap-2 mb-3">
+                              <Sparkles className="w-4 h-4 text-amber-400" />
+                              <span className="text-sm font-medium">AI Competitive Intelligence</span>
+                              <span className="text-xs text-muted-foreground ml-auto">
+                                Analyzed {formatDistanceToNow(new Date(storedAnalysis.analyzed_at), { addSuffix: true })}
+                              </span>
+                            </div>
+                            <div className="text-sm text-muted-foreground whitespace-pre-line leading-relaxed">
+                              {storedAnalysis.ai_summary}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -306,6 +430,9 @@ export default function SECPage() {
                     const filing10Q = company.recentFilings.filter(f => f.filingType === '10-Q').length;
                     const filing8K = company.recentFilings.filter(f => f.filingType === '8-K').length;
                     const filingProxy = company.recentFilings.filter(f => f.filingType === 'DEF 14A').length;
+                    const companyAnalysedCount = company.recentFilings.filter(
+                      f => storedAnalyses[f.accessionNumber]
+                    ).length;
 
                     return (
                       <div key={company.companyId} className="p-4 rounded-lg border border-border">
@@ -316,9 +443,16 @@ export default function SECPage() {
                           >
                             {company.name}
                           </Link>
-                          <span className="text-xs text-muted-foreground">
-                            CIK: {company.cik}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            {companyAnalysedCount > 0 && (
+                              <Badge variant="outline" className="text-xs bg-emerald-500/10 text-emerald-400 border-emerald-500/30">
+                                {companyAnalysedCount} analyzed
+                              </Badge>
+                            )}
+                            <span className="text-xs text-muted-foreground">
+                              CIK: {company.cik}
+                            </span>
+                          </div>
                         </div>
 
                         {/* Filing counts */}
@@ -357,7 +491,6 @@ export default function SECPage() {
                           </div>
                         )}
 
-                        {/* Additional info */}
                         {company.sicDescription && (
                           <p className="text-xs text-muted-foreground mt-2">
                             Industry: {company.sicDescription}
@@ -419,6 +552,34 @@ export default function SECPage() {
             </CardContent>
           </Card>
 
+          {/* How AI Analysis Works */}
+          <Card className="bg-card border-border">
+            <CardHeader>
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-amber-400" />
+                How AI Analysis Works
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm text-muted-foreground">
+              <p>Click <strong className="text-foreground">Analyze</strong> on any 10-K, 10-Q, or 8-K filing to generate competitive intelligence.</p>
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <span className="text-blue-400 font-medium shrink-0">10-K:</span>
+                  <span>Extracts Business, Risk Factors, and MD&A sections</span>
+                </div>
+                <div className="flex gap-2">
+                  <span className="text-emerald-400 font-medium shrink-0">10-Q:</span>
+                  <span>Extracts the MD&A quarterly update</span>
+                </div>
+                <div className="flex gap-2">
+                  <span className="text-amber-400 font-medium shrink-0">8-K:</span>
+                  <span>Full document — always concise and material</span>
+                </div>
+              </div>
+              <p className="text-xs">Results are stored permanently and used to enrich the weekly briefing.</p>
+            </CardContent>
+          </Card>
+
           {/* What to Look For */}
           <Card className="bg-card border-border">
             <CardHeader>
@@ -443,7 +604,7 @@ export default function SECPage() {
                 <AlertCircle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
                 <div>
                   <p className="font-medium">Risk Factors</p>
-                  <p className="text-muted-foreground">Often names competitors and market threats</p>
+                  <p className="text-muted-foreground">Often names competitors and market threats explicitly</p>
                 </div>
               </div>
               <div className="flex gap-3">
@@ -476,7 +637,7 @@ export default function SECPage() {
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-amber-400" />
-                SAP (SAP) - owns Signavio
+                SAP (SAP) — owns Signavio
               </div>
               <p className="text-xs mt-3">
                 Data sourced from SEC EDGAR

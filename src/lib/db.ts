@@ -66,6 +66,17 @@ export interface JobSignal {
   detected_at: string;
 }
 
+export interface SecFilingAnalysis {
+  id: number;
+  company_id: string;
+  filing_id: string;
+  form_type: string;
+  filed_date: string;
+  document_url: string | null;
+  ai_summary: string;
+  analyzed_at: string;
+}
+
 // Initialize database schema
 export async function initializeSchema(): Promise<void> {
   const sql = getDb();
@@ -133,6 +144,19 @@ export async function initializeSchema(): Promise<void> {
       location TEXT,
       url TEXT,
       detected_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS sec_filing_analyses (
+      id SERIAL PRIMARY KEY,
+      company_id TEXT REFERENCES companies(id),
+      filing_id TEXT UNIQUE,
+      form_type TEXT,
+      filed_date TEXT,
+      document_url TEXT,
+      ai_summary TEXT,
+      analyzed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `;
 
@@ -368,6 +392,53 @@ export async function getJobStats(): Promise<{
     totalJobs: Number(row.total_jobs),
     topDepartments: (row.departments || []).slice(0, 5),
   }));
+}
+
+// Get all job signals (for briefing and GET /api/jobs)
+export async function getAllJobSignals(): Promise<JobSignal[]> {
+  const sql = getDb();
+  const result = await sql`SELECT * FROM job_signals ORDER BY detected_at DESC`;
+  return result as JobSignal[];
+}
+
+// SEC filing analysis operations
+export async function getSecFilingAnalysis(filingId: string): Promise<SecFilingAnalysis | undefined> {
+  const sql = getDb();
+  const result = await sql`SELECT * FROM sec_filing_analyses WHERE filing_id = ${filingId}`;
+  return result[0] as SecFilingAnalysis | undefined;
+}
+
+export async function insertSecFilingAnalysis(
+  analysis: Omit<SecFilingAnalysis, 'id' | 'analyzed_at'>
+): Promise<number> {
+  const sql = getDb();
+  const result = await sql`
+    INSERT INTO sec_filing_analyses (company_id, filing_id, form_type, filed_date, document_url, ai_summary)
+    VALUES (${analysis.company_id}, ${analysis.filing_id}, ${analysis.form_type}, ${analysis.filed_date}, ${analysis.document_url}, ${analysis.ai_summary})
+    ON CONFLICT (filing_id) DO UPDATE SET ai_summary = EXCLUDED.ai_summary, analyzed_at = NOW()
+    RETURNING id
+  `;
+  return result[0].id;
+}
+
+export async function getAllSecFilingAnalyses(limit: number = 20): Promise<SecFilingAnalysis[]> {
+  const sql = getDb();
+  const result = await sql`
+    SELECT * FROM sec_filing_analyses
+    ORDER BY analyzed_at DESC
+    LIMIT ${limit}
+  `;
+  return result as SecFilingAnalysis[];
+}
+
+export async function getSecFilingAnalysesByCompany(companyId: string): Promise<SecFilingAnalysis[]> {
+  const sql = getDb();
+  const result = await sql`
+    SELECT * FROM sec_filing_analyses
+    WHERE company_id = ${companyId}
+    ORDER BY filed_date DESC
+  `;
+  return result as SecFilingAnalysis[];
 }
 
 // Stats
