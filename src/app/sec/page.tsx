@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -26,6 +26,65 @@ import { cn } from '@/lib/utils';
 import { formatDistanceToNow, format } from 'date-fns';
 
 const fetcher = (url: string) => fetch(url).then(res => res.json());
+
+// Render inline **bold** markers as <strong> elements
+function renderInline(text: string): React.ReactNode {
+  const parts = text.split(/\*\*(.+?)\*\*/);
+  if (parts.length === 1) return text;
+  return (
+    <>
+      {parts.map((part, i) =>
+        i % 2 === 1
+          ? <strong key={i} className="font-semibold text-foreground">{part}</strong>
+          : part
+      )}
+    </>
+  );
+}
+
+// Render a Claude markdown response: headings, bullets, numbered lists, bold
+function AnalysisSummary({ content }: { content: string }) {
+  const lines = content.split('\n');
+  const elements: React.ReactNode[] = [];
+
+  lines.forEach((line, i) => {
+    if (line.startsWith('## ')) {
+      elements.push(
+        <h3 key={i} className="text-sm font-semibold text-foreground mt-3 mb-1">
+          {renderInline(line.replace('## ', ''))}
+        </h3>
+      );
+    } else if (line.startsWith('### ')) {
+      elements.push(
+        <h4 key={i} className="text-sm font-medium text-foreground mt-2 mb-1">
+          {renderInline(line.replace('### ', ''))}
+        </h4>
+      );
+    } else if (line.startsWith('- ')) {
+      elements.push(
+        <li key={i} className="ml-4 mb-0.5 text-sm text-muted-foreground">
+          {renderInline(line.replace(/^- /, ''))}
+        </li>
+      );
+    } else if (/^\d+\. /.test(line)) {
+      elements.push(
+        <p key={i} className="ml-4 mb-1 text-sm text-muted-foreground">
+          {renderInline(line)}
+        </p>
+      );
+    } else if (line.trim() === '') {
+      elements.push(<br key={i} />);
+    } else {
+      elements.push(
+        <p key={i} className="text-sm text-muted-foreground mb-1">
+          {renderInline(line)}
+        </p>
+      );
+    }
+  });
+
+  return <>{elements}</>;
+}
 
 interface SECFiling {
   companyId: string;
@@ -437,8 +496,8 @@ export default function SECPage() {
                                 Analyzed {formatDistanceToNow(new Date(storedAnalysis.analyzed_at), { addSuffix: true })}
                               </span>
                             </div>
-                            <div className="text-sm text-muted-foreground whitespace-pre-line leading-relaxed">
-                              {storedAnalysis.ai_summary}
+                            <div className="leading-relaxed">
+                              <AnalysisSummary content={storedAnalysis.ai_summary} />
                             </div>
                           </div>
                         )}

@@ -273,19 +273,34 @@ export async function fetchSECDocumentText(documentUrl: string): Promise<string>
 }
 
 // Extract the text between two item markers (e.g. ITEM 1 to ITEM 1A)
+// Retries up to 5 times to skip table-of-contents entries (which are very short)
+// and find the actual section content.
 function extractBetweenItems(text: string, startItem: string, endItem: string): string {
   // Match "Item 1." / "ITEM 1." / "Item 1 " etc.
-  const startRegex = new RegExp(`(?:^|\\s)ITEM\\s+${startItem}[.\\s]`, 'i');
   const endRegex = new RegExp(`(?:^|\\s)ITEM\\s+${endItem}[.\\s]`, 'i');
 
-  const startIdx = text.search(startRegex);
-  if (startIdx === -1) return '';
+  let pos = 0;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const startRegex = new RegExp(`(?:^|\\s)ITEM\\s+${startItem}[.\\s]`, 'i');
+    const relIdx = text.slice(pos).search(startRegex);
+    if (relIdx === -1) break;
 
-  const remainder = text.slice(startIdx);
-  const endIdx = remainder.search(endRegex);
+    const absStart = pos + relIdx;
+    const remainder = text.slice(absStart);
+    const endIdx = remainder.search(endRegex);
+    const section = endIdx === -1 ? remainder : remainder.slice(0, endIdx);
 
-  const section = endIdx === -1 ? remainder : remainder.slice(0, endIdx);
-  return section.slice(0, 25000); // cap each section at 25k chars
+    // If we have substantial content (not just a TOC line like "Item 1. Business 4"),
+    // this is the real section — return it.
+    if (section.trim().length > 500) {
+      return section.slice(0, 25000);
+    }
+
+    // Too short — this was a TOC entry. Advance past it and try the next occurrence.
+    pos = absStart + 8;
+  }
+
+  return '';
 }
 
 // Extract competitive-intelligence-relevant sections based on filing type
