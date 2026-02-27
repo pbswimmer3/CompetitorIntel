@@ -20,9 +20,18 @@ export default function Dashboard() {
   const { data: trendsData } = useSWR('/api/trends?limit=10', fetcher);
 
   const companies = companiesData?.companies || [];
-  const stats = companiesData?.stats || { companyCount: 0, newsCount: 0, highAlertCount: 0, trendCount: 0 };
   const news = newsData?.news || [];
   const trends = trendsData?.trends || [];
+
+  // Compute stats from the actual data displayed on the dashboard so tiles match
+  const dbStats = companiesData?.stats || {};
+  const stats = {
+    companyCount: companies.length,
+    newsCount: news.length,
+    highAlertCount: news.filter((item: any) => item.ai_significance === 'high').length,
+    trendCount: trends.length,
+    jobCount: dbStats.jobCount || 0,
+  };
 
   // Get latest news per company for cards
   const latestNewsByCompany = new Map<string, typeof news[0]>();
