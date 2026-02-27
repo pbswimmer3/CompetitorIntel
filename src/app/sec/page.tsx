@@ -203,7 +203,7 @@ export default function SECPage() {
     }
   };
 
-  const handleAnalyze = async (filing: SECFiling) => {
+  const handleAnalyze = async (filing: SECFiling, { force = false } = {}) => {
     const key = filing.accessionNumber;
     setAnalyzingFilings(prev => ({ ...prev, [key]: true }));
     setAnalyzeErrors(prev => ({ ...prev, [key]: '' }));
@@ -220,6 +220,7 @@ export default function SECPage() {
           docUrl: filing.documentUrl,
           formType: filing.filingType,
           filedDate: filing.filingDate,
+          force,
         }),
       });
 
@@ -430,6 +431,27 @@ export default function SECPage() {
                           {/* Action buttons */}
                           <div className="flex flex-col items-end gap-1 shrink-0">
                             <div className="flex items-center gap-2">
+                              {/* Re-analyze button — visible when an analysis already exists */}
+                              {storedAnalysis && canAnalyze && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground gap-1"
+                                  disabled={isAnalyzing}
+                                  onClick={() => {
+                                    setFailedFilings(prev => ({ ...prev, [filingKey]: false }));
+                                    handleAnalyze(filing, { force: true });
+                                  }}
+                                  title="Re-run analysis with fresh Claude call"
+                                >
+                                  {isAnalyzing ? (
+                                    <RefreshCw className="w-3 h-3 animate-spin" />
+                                  ) : (
+                                    <RefreshCw className="w-3 h-3" />
+                                  )}
+                                  Re-analyze
+                                </Button>
+                              )}
                               {storedAnalysis && (
                                 <Button
                                   variant="ghost"

@@ -28,7 +28,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { companyId, companyName, filingId, docUrl, formType, filedDate } = body;
+    const { companyId, companyName, filingId, docUrl, formType, filedDate, force } = body;
 
     if (!companyId || !filingId || !formType) {
       return NextResponse.json(
@@ -37,10 +37,12 @@ export async function POST(request: Request) {
       );
     }
 
-    // Return cached result if already analyzed
-    const existing = await getSecFilingAnalysis(filingId);
-    if (existing) {
-      return NextResponse.json({ analysis: existing, cached: true });
+    // Return cached result if already analyzed (unless force re-analysis requested)
+    if (!force) {
+      const existing = await getSecFilingAnalysis(filingId);
+      if (existing) {
+        return NextResponse.json({ analysis: existing, cached: true });
+      }
     }
 
     if (!docUrl) {
