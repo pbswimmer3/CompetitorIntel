@@ -79,17 +79,16 @@ export default function Dashboard() {
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Alert Feed - Takes 2 columns */}
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2 h-full">
           <AlertFeed
             news={news}
-            maxHeight="700px"
             onRefresh={handleRefresh}
             isRefreshing={isRefreshing}
           />
         </div>
 
         {/* Trends - Takes 1 column */}
-        <div>
+        <div className="h-full">
           <TrendCard trends={trends} />
         </div>
       </div>

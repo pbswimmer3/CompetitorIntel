@@ -55,9 +55,10 @@ export async function POST(request: Request) {
     try {
       documentText = await fetchSECDocumentText(docUrl);
     } catch (fetchError) {
-      console.error('Failed to fetch SEC document:', fetchError);
+      const errMsg = fetchError instanceof Error ? fetchError.message : String(fetchError);
+      console.error('Failed to fetch SEC document:', errMsg, 'URL:', docUrl);
       return NextResponse.json(
-        { error: 'Failed to fetch SEC document from EDGAR' },
+        { error: `Failed to fetch SEC document: ${errMsg}` },
         { status: 502 }
       );
     }
@@ -65,9 +66,10 @@ export async function POST(request: Request) {
     // Extract only the strategically relevant sections
     const relevantContent = extractFilingSections(documentText, formType);
 
-    if (!relevantContent || relevantContent.length < 500) {
+    if (!relevantContent || relevantContent.length < 100) {
+      console.error('Content extraction too short:', relevantContent?.length, 'chars for', docUrl);
       return NextResponse.json(
-        { error: 'Could not extract meaningful content from filing' },
+        { error: `Could not extract meaningful content (got ${relevantContent?.length ?? 0} chars)` },
         { status: 422 }
       );
     }

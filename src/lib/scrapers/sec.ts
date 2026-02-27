@@ -238,10 +238,19 @@ export function isPublicCompany(companyId: string): boolean {
 
 // Fetch a SEC document and return plain text
 export async function fetchSECDocumentText(documentUrl: string): Promise<string> {
-  const response = await fetch(documentUrl, { headers: SEC_DOC_HEADERS });
+  let response: Response;
+  try {
+    response = await fetch(documentUrl, {
+      headers: SEC_DOC_HEADERS,
+      signal: AbortSignal.timeout(30000), // 30-second timeout
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new Error(`SEC document fetch error: ${msg} (URL: ${documentUrl})`);
+  }
 
   if (!response.ok) {
-    throw new Error(`SEC document fetch failed: ${response.status}`);
+    throw new Error(`SEC document fetch failed: HTTP ${response.status} for ${documentUrl}`);
   }
 
   const html = await response.text();

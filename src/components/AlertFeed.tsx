@@ -26,7 +26,6 @@ interface NewsItem {
 
 interface AlertFeedProps {
   news: NewsItem[];
-  maxHeight?: string;
   onRefresh?: () => void;
   isRefreshing?: boolean;
 }
@@ -55,10 +54,10 @@ const categoryStyles = {
   other: 'text-slate-400'
 };
 
-export function AlertFeed({ news, maxHeight = '600px', onRefresh, isRefreshing }: AlertFeedProps) {
+export function AlertFeed({ news, onRefresh, isRefreshing }: AlertFeedProps) {
   return (
-    <Card className="bg-card border-border">
-      <CardHeader className="pb-3">
+    <Card className="bg-card border-border h-full flex flex-col">
+      <CardHeader className="pb-3 flex-shrink-0">
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2">
             <AlertCircle className="w-5 h-5 text-red-400" />
@@ -78,8 +77,8 @@ export function AlertFeed({ news, maxHeight = '600px', onRefresh, isRefreshing }
           )}
         </div>
       </CardHeader>
-      <CardContent className="p-0">
-        <ScrollArea style={{ height: maxHeight }}>
+      <CardContent className="p-0 flex-1 min-h-0">
+        <ScrollArea className="h-full">
           <div className="space-y-1 p-4 pt-0">
             {news.map((item) => {
               const CategoryIcon = categoryIcons[item.ai_category as keyof typeof categoryIcons] || MoreHorizontal;

@@ -173,7 +173,7 @@ export async function seedCompanies(): Promise<void> {
   const sql = getDb();
 
   const companies = [
-    { id: 'celonis', name: 'Celonis', slug: 'celonis', description: 'Market leader in execution management and process mining', website: 'https://celonis.com', founded_year: 2011, funding_total: '$1.4B', valuation: '$13B', employee_count_estimate: 3000, category: 'target' },
+    { id: 'celonis', name: 'Celonis', slug: 'celonis', description: 'Market leader in execution management and process mining', website: 'https://celonis.com', founded_year: 2011, funding_total: '$1.4B', valuation: '$13B', employee_count_estimate: 3000, category: 'competitor' },
     { id: 'uipath', name: 'UiPath', slug: 'uipath', description: 'Enterprise automation and RPA platform with process mining capabilities', website: 'https://uipath.com', founded_year: 2005, funding_total: '$2B', valuation: '$7B', employee_count_estimate: 4000, category: 'competitor' },
     { id: 'abbyy', name: 'ABBYY', slug: 'abbyy', description: 'Intelligent document processing and process intelligence', website: 'https://abbyy.com', founded_year: 1989, funding_total: '$200M', valuation: '$1B', employee_count_estimate: 1200, category: 'competitor' },
     { id: 'microsoft', name: 'Microsoft (Process Advisor)', slug: 'microsoft', description: 'Process mining through Power Automate Process Advisor', website: 'https://powerautomate.microsoft.com', founded_year: 1975, funding_total: 'Public', valuation: '$2.8T', employee_count_estimate: 220000, category: 'competitor' },
@@ -181,7 +181,7 @@ export async function seedCompanies(): Promise<void> {
     { id: 'sap-signavio', name: 'SAP Signavio', slug: 'sap-signavio', description: 'Process transformation suite acquired by SAP', website: 'https://signavio.com', founded_year: 2009, funding_total: 'Acquired', valuation: '$1.2B', employee_count_estimate: 500, category: 'competitor' },
     { id: 'automation-anywhere', name: 'Automation Anywhere', slug: 'automation-anywhere', description: 'RPA platform expanding into process discovery', website: 'https://automationanywhere.com', founded_year: 2003, funding_total: '$840M', valuation: '$6.8B', employee_count_estimate: 2500, category: 'adjacent' },
     { id: 'apromore', name: 'Apromore', slug: 'apromore', description: 'Open-source process mining platform', website: 'https://apromore.com', founded_year: 2019, funding_total: '$10M', valuation: null, employee_count_estimate: 50, category: 'adjacent' },
-    { id: 'skan-ai', name: 'Skan.AI', slug: 'skan-ai', description: 'Computer vision-based process intelligence platform', website: 'https://skan.ai', founded_year: 2018, funding_total: '$50M', valuation: null, employee_count_estimate: 100, category: 'adjacent' }
+    { id: 'skan-ai', name: 'Skan.AI', slug: 'skan-ai', description: 'Computer vision-based process intelligence platform', website: 'https://skan.ai', founded_year: 2018, funding_total: '$50M', valuation: null, employee_count_estimate: 100, category: 'target' }
   ];
 
   for (const company of companies) {
@@ -196,6 +196,10 @@ export async function seedCompanies(): Promise<void> {
 // Company operations
 export async function getAllCompanies(): Promise<Company[]> {
   const sql = getDb();
+  // Self-healing: fix incorrect categories set during initial seeding
+  // WHERE conditions make these no-ops once the data is corrected
+  await sql`UPDATE companies SET category = 'competitor' WHERE id = 'celonis' AND category = 'target'`;
+  await sql`UPDATE companies SET category = 'target' WHERE id = 'skan-ai' AND category != 'target'`;
   const result = await sql`SELECT * FROM companies ORDER BY name`;
   return result as Company[];
 }

@@ -108,6 +108,8 @@ export default function SECPage() {
   const [analyzingFilings, setAnalyzingFilings] = useState<Record<string, boolean>>({});
   // Track filings that failed to analyze { [accessionNumber]: boolean }
   const [failedFilings, setFailedFilings] = useState<Record<string, boolean>>({});
+  // Store the error message for each failed filing { [accessionNumber]: string }
+  const [analyzeErrors, setAnalyzeErrors] = useState<Record<string, string>>({});
   // Track locally-added analysis results before SWR refetches
   const [localAnalyses, setLocalAnalyses] = useState<Record<string, StoredAnalysis>>({});
   // Track which filing summaries are expanded
@@ -145,6 +147,7 @@ export default function SECPage() {
   const handleAnalyze = async (filing: SECFiling) => {
     const key = filing.accessionNumber;
     setAnalyzingFilings(prev => ({ ...prev, [key]: true }));
+    setAnalyzeErrors(prev => ({ ...prev, [key]: '' }));
 
     try {
       const companyInfo = getCompanyInfo(filing.companyId);
@@ -167,11 +170,24 @@ export default function SECPage() {
         setExpandedFilings(prev => ({ ...prev, [key]: true }));
         mutateAnalyses();
       } else {
+        // Read and log the actual error body for debugging
+        const errText = await response.text();
+        let errMsg = `HTTP ${response.status}`;
+        try {
+          const errJson = JSON.parse(errText);
+          errMsg = errJson.error || errMsg;
+        } catch {
+          // non-JSON error body
+        }
+        console.error(`Analyze failed (${response.status}):`, errText);
         setFailedFilings(prev => ({ ...prev, [key]: true }));
+        setAnalyzeErrors(prev => ({ ...prev, [key]: errMsg }));
       }
     } catch (error) {
       console.error('Failed to analyze filing:', error);
+      const msg = error instanceof Error ? error.message : 'Network error';
       setFailedFilings(prev => ({ ...prev, [key]: true }));
+      setAnalyzeErrors(prev => ({ ...prev, [key]: msg }));
     } finally {
       setAnalyzingFilings(prev => ({ ...prev, [key]: false }));
     }
@@ -353,52 +369,60 @@ export default function SECPage() {
                           </div>
 
                           {/* Action buttons */}
-                          <div className="flex items-center gap-2 shrink-0">
-                            {storedAnalysis && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 px-2 text-xs"
-                                onClick={() => setExpandedFilings(prev => ({ ...prev, [filingKey]: !isExpanded }))}
-                              >
-                                {isExpanded ? (
-                                  <ChevronUp className="w-3 h-3" />
-                                ) : (
-                                  <ChevronDown className="w-3 h-3" />
-                                )}
-                              </Button>
-                            )}
-                            {canAnalyze && !storedAnalysis && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className={cn(
-                                  "h-7 px-3 text-xs gap-1.5",
-                                  hasFailed && "border-red-500/30 text-red-400"
-                                )}
-                                disabled={isAnalyzing}
-                                onClick={() => {
-                                  setFailedFilings(prev => ({ ...prev, [filingKey]: false }));
-                                  handleAnalyze(filing);
-                                }}
-                              >
-                                {isAnalyzing ? (
-                                  <>
-                                    <RefreshCw className="w-3 h-3 animate-spin" />
-                                    Analyzing...
-                                  </>
-                                ) : hasFailed ? (
-                                  <>
-                                    <AlertCircle className="w-3 h-3" />
-                                    Retry
-                                  </>
-                                ) : (
-                                  <>
-                                    <Sparkles className="w-3 h-3 text-amber-400" />
-                                    Analyze
-                                  </>
-                                )}
-                              </Button>
+                          <div className="flex flex-col items-end gap-1 shrink-0">
+                            <div className="flex items-center gap-2">
+                              {storedAnalysis && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 px-2 text-xs"
+                                  onClick={() => setExpandedFilings(prev => ({ ...prev, [filingKey]: !isExpanded }))}
+                                >
+                                  {isExpanded ? (
+                                    <ChevronUp className="w-3 h-3" />
+                                  ) : (
+                                    <ChevronDown className="w-3 h-3" />
+                                  )}
+                                </Button>
+                              )}
+                              {canAnalyze && !storedAnalysis && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className={cn(
+                                    "h-7 px-3 text-xs gap-1.5",
+                                    hasFailed && "border-red-500/30 text-red-400"
+                                  )}
+                                  disabled={isAnalyzing}
+                                  onClick={() => {
+                                    setFailedFilings(prev => ({ ...prev, [filingKey]: false }));
+                                    handleAnalyze(filing);
+                                  }}
+                                >
+                                  {isAnalyzing ? (
+                                    <>
+                                      <RefreshCw className="w-3 h-3 animate-spin" />
+                                      Analyzing...
+                                    </>
+                                  ) : hasFailed ? (
+                                    <>
+                                      <AlertCircle className="w-3 h-3" />
+                                      Retry
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Sparkles className="w-3 h-3 text-amber-400" />
+                                      Analyze
+                                    </>
+                                  )}
+                                </Button>
+                              )}
+                            </div>
+                            {/* Show error detail below the button when analysis fails */}
+                            {hasFailed && analyzeErrors[filingKey] && (
+                              <p className="text-xs text-red-400 max-w-[180px] text-right">
+                                {analyzeErrors[filingKey]}
+                              </p>
                             )}
                           </div>
                         </div>
@@ -435,30 +459,51 @@ export default function SECPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {secCompanies.length === 0 ? (
+              {companies.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  <p>No SEC data available. Click refresh to fetch.</p>
+                  <p>Loading companies...</p>
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {secCompanies.map((company) => {
-                    const companyInfo = getCompanyInfo(company.companyId);
-                    const filing10K = company.recentFilings.filter(f => f.filingType === '10-K').length;
-                    const filing10Q = company.recentFilings.filter(f => f.filingType === '10-Q').length;
-                    const filing8K = company.recentFilings.filter(f => f.filingType === '8-K').length;
-                    const filingProxy = company.recentFilings.filter(f => f.filingType === 'DEF 14A').length;
-                    const companyAnalysedCount = company.recentFilings.filter(
+                  {companies.map((company) => {
+                    // Look up this company's SEC data (only present for public companies)
+                    const secInfo = secCompanies.find(s => s.companyId === company.id);
+
+                    if (!secInfo) {
+                      // Private company — no SEC filings
+                      return (
+                        <div key={company.id} className="p-4 rounded-lg border border-border opacity-60">
+                          <div className="flex items-center justify-between">
+                            <Link
+                              href={`/company/${company.slug}`}
+                              className="font-semibold hover:text-primary transition-colors"
+                            >
+                              {company.name}
+                            </Link>
+                            <Badge variant="outline" className="text-xs bg-slate-500/10 text-slate-400 border-slate-500/20">
+                              Private — no SEC filings
+                            </Badge>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    const companyInfo = getCompanyInfo(secInfo.companyId);
+                    const filing10K = secInfo.recentFilings.filter(f => f.filingType === '10-K').length;
+                    const filing10Q = secInfo.recentFilings.filter(f => f.filingType === '10-Q').length;
+                    const filing8K = secInfo.recentFilings.filter(f => f.filingType === '8-K').length;
+                    const filingProxy = secInfo.recentFilings.filter(f => f.filingType === 'DEF 14A').length;
+                    const companyAnalysedCount = secInfo.recentFilings.filter(
                       f => storedAnalyses[f.accessionNumber]
                     ).length;
 
                     return (
-                      <div key={company.companyId} className="p-4 rounded-lg border border-border">
+                      <div key={company.id} className="p-4 rounded-lg border border-border">
                         <div className="flex items-center justify-between mb-3">
                           <Link
                             href={`/company/${companyInfo.slug}`}
                             className="font-semibold hover:text-primary transition-colors"
                           >
-                            {/* Use the friendly name from our companies list, not the EDGAR registered name */}
                             {companyInfo.name}
                           </Link>
                           <div className="flex items-center gap-2">
@@ -468,7 +513,7 @@ export default function SECPage() {
                               </Badge>
                             )}
                             <span className="text-xs text-muted-foreground">
-                              CIK: {company.cik}
+                              CIK: {secInfo.cik}
                             </span>
                           </div>
                         </div>
@@ -498,9 +543,9 @@ export default function SECPage() {
                         </div>
 
                         {/* Signals */}
-                        {company.signals.length > 0 && (
+                        {secInfo.signals.length > 0 && (
                           <div className="space-y-1">
-                            {company.signals.map((signal, idx) => (
+                            {secInfo.signals.map((signal, idx) => (
                               <div key={idx} className="flex items-center gap-2 text-xs text-muted-foreground">
                                 <AlertCircle className="w-3 h-3 text-amber-400" />
                                 {signal}
@@ -509,9 +554,9 @@ export default function SECPage() {
                           </div>
                         )}
 
-                        {company.sicDescription && (
+                        {secInfo.sicDescription && (
                           <p className="text-xs text-muted-foreground mt-2">
-                            Industry: {company.sicDescription}
+                            Industry: {secInfo.sicDescription}
                           </p>
                         )}
                       </div>
@@ -635,29 +680,42 @@ export default function SECPage() {
             </CardContent>
           </Card>
 
-          {/* Public Companies Tracked — derived from live secCompanies data */}
+          {/* All Companies Tracked — shows all 9 with public/private indicator */}
           <Card className="bg-card border-border">
             <CardHeader>
-              <CardTitle className="text-sm font-medium">Public Companies Tracked</CardTitle>
+              <CardTitle className="text-sm font-medium">Companies Tracked</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-sm text-muted-foreground">
-              {secCompanies.length === 0 ? (
-                <p className="text-xs">Refresh SEC data to see tracked companies.</p>
+              {companies.length === 0 ? (
+                <p className="text-xs">Loading companies...</p>
               ) : (
-                secCompanies.map((secCo, idx) => {
+                companies.map((company, idx) => {
+                  const isPublic = secCompanies.some(s => s.companyId === company.id);
                   const dotColors = ['bg-blue-400', 'bg-emerald-400', 'bg-purple-400', 'bg-amber-400'];
-                  const companyInfo = getCompanyInfo(secCo.companyId);
                   return (
-                    <div key={secCo.companyId} className="flex items-center gap-2">
-                      <div className={`w-2 h-2 rounded-full ${dotColors[idx % dotColors.length]}`} />
-                      <Link href={`/company/${companyInfo.slug}`} className="hover:text-foreground transition-colors">
-                        {companyInfo.name}
-                      </Link>
+                    <div key={company.id} className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${isPublic ? dotColors[idx % dotColors.length] : 'bg-slate-500'}`} />
+                        <Link href={`/company/${company.slug}`} className="hover:text-foreground transition-colors truncate">
+                          {company.name}
+                        </Link>
+                      </div>
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "text-xs flex-shrink-0",
+                          isPublic
+                            ? "bg-blue-500/10 text-blue-400 border-blue-500/20"
+                            : "bg-slate-500/10 text-slate-400 border-slate-500/20"
+                        )}
+                      >
+                        {isPublic ? 'Public' : 'Private'}
+                      </Badge>
                     </div>
                   );
                 })
               )}
-              <p className="text-xs mt-3">Data sourced from SEC EDGAR</p>
+              <p className="text-xs mt-3">SEC data sourced from EDGAR</p>
             </CardContent>
           </Card>
         </div>
