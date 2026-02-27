@@ -435,18 +435,6 @@ Start by reading PROJECT_SPEC.md, then build incrementally. Ask me questions if 
 
 ---
 
-## Demo Talking Points
-
-When presenting this to Skan.AI:
-
-1. **"I built this in a week using Claude Code"** — proves you can move fast with AI tools
-2. **"It replaces 5-10 hours/week of manual competitive research"** — speaks to the 'do more with less' mandate
-3. **"The agentic workflow pattern is reusable"** — data collection → AI analysis → structured output → reporting can be applied to any business process
-4. **"I chose your competitive landscape intentionally"** — shows you've done your homework on the market
-5. **"Here's how I'd apply this pattern to deal desk, legal review, customer onboarding..."** — bridges from project to role
-
----
-
 ## Environment Setup
 
 ```bash
