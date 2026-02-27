@@ -7,6 +7,9 @@ import {
 import { analyzeSecFiling } from '@/lib/claude';
 import { fetchSECDocumentText, extractFilingSections } from '@/lib/scrapers/sec';
 
+// Allow up to 60 seconds — fetching + extracting + Claude analysis can take 20-40s
+export const maxDuration = 60;
+
 // GET - return all stored analyses
 export async function GET() {
   try {

@@ -458,7 +458,8 @@ export default function SECPage() {
                             href={`/company/${companyInfo.slug}`}
                             className="font-semibold hover:text-primary transition-colors"
                           >
-                            {company.name}
+                            {/* Use the friendly name from our companies list, not the EDGAR registered name */}
+                            {companyInfo.name}
                           </Link>
                           <div className="flex items-center gap-2">
                             {companyAnalysedCount > 0 && (
@@ -634,31 +635,29 @@ export default function SECPage() {
             </CardContent>
           </Card>
 
-          {/* Public Companies Tracked */}
+          {/* Public Companies Tracked — derived from live secCompanies data */}
           <Card className="bg-card border-border">
             <CardHeader>
               <CardTitle className="text-sm font-medium">Public Companies Tracked</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-sm text-muted-foreground">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-blue-400" />
-                UiPath (PATH)
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-emerald-400" />
-                Microsoft (MSFT)
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-purple-400" />
-                IBM (IBM)
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-amber-400" />
-                SAP (SAP) — owns Signavio
-              </div>
-              <p className="text-xs mt-3">
-                Data sourced from SEC EDGAR
-              </p>
+              {secCompanies.length === 0 ? (
+                <p className="text-xs">Refresh SEC data to see tracked companies.</p>
+              ) : (
+                secCompanies.map((secCo, idx) => {
+                  const dotColors = ['bg-blue-400', 'bg-emerald-400', 'bg-purple-400', 'bg-amber-400'];
+                  const companyInfo = getCompanyInfo(secCo.companyId);
+                  return (
+                    <div key={secCo.companyId} className="flex items-center gap-2">
+                      <div className={`w-2 h-2 rounded-full ${dotColors[idx % dotColors.length]}`} />
+                      <Link href={`/company/${companyInfo.slug}`} className="hover:text-foreground transition-colors">
+                        {companyInfo.name}
+                      </Link>
+                    </div>
+                  );
+                })
+              )}
+              <p className="text-xs mt-3">Data sourced from SEC EDGAR</p>
             </CardContent>
           </Card>
         </div>

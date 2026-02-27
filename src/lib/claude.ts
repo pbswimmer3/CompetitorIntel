@@ -110,10 +110,13 @@ export interface WeekData {
 }
 
 export async function generateBriefing(weekData: WeekData): Promise<string> {
+  const today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   const response = await client.messages.create({
     model: 'claude-sonnet-4-20250514',
     max_tokens: 4000,
     system: `You are the head of competitive intelligence at a top-tier strategy consulting firm, writing a weekly briefing for the CEO and leadership team of Skan.AI.
+
+Today's date is ${today}.
 
 ABOUT SKAN.AI:
 - Series B process intelligence startup (~$50M raised)

@@ -108,7 +108,7 @@ export default function BriefingPage() {
                         <div className="flex items-center gap-2 mb-1">
                           <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
                           <span className="text-sm font-medium">
-                            {format(new Date(briefing.week_of), 'MMM d, yyyy')}
+                            Week of {format(new Date(briefing.week_of), 'MMM d, yyyy')}
                           </span>
                         </div>
                         <div className="text-xs text-muted-foreground">
@@ -160,6 +160,25 @@ function formatLocalTime(isoString: string): string {
   return format(date, 'MMM d, h:mm a');
 }
 
+// Render inline markdown: converts **bold** markers to <strong> elements
+function renderInline(text: string): React.ReactNode {
+  const parts = text.split(/\*\*(.+?)\*\*/);
+  if (parts.length === 1) return text;
+  return (
+    <>
+      {parts.map((part, i) =>
+        i % 2 === 1 ? (
+          <strong key={i} className="font-semibold text-foreground">
+            {part}
+          </strong>
+        ) : (
+          part
+        )
+      )}
+    </>
+  );
+}
+
 // Component to render markdown-like content
 function BriefingContent({ content }: { content: string }) {
   const lines = content.split('\n');
@@ -169,25 +188,25 @@ function BriefingContent({ content }: { content: string }) {
     if (line.startsWith('## ')) {
       elements.push(
         <h2 key={index} className="text-xl font-semibold mt-6 mb-3 text-foreground flex items-center gap-2">
-          {line.replace('## ', '')}
+          {renderInline(line.replace('## ', ''))}
         </h2>
       );
     } else if (line.startsWith('### ')) {
       elements.push(
         <h3 key={index} className="text-lg font-medium mt-4 mb-2 text-foreground">
-          {line.replace('### ', '')}
+          {renderInline(line.replace('### ', ''))}
         </h3>
       );
     } else if (line.startsWith('- ')) {
       elements.push(
         <li key={index} className="text-muted-foreground ml-4 mb-1">
-          {line.replace('- ', '')}
+          {renderInline(line.replace(/^- /, ''))}
         </li>
       );
-    } else if (line.startsWith('**') && line.endsWith('**')) {
+    } else if (/^\d+\. /.test(line)) {
       elements.push(
-        <p key={index} className="font-semibold text-foreground my-2">
-          {line.replace(/\*\*/g, '')}
+        <p key={index} className="text-muted-foreground ml-4 mb-1">
+          {renderInline(line)}
         </p>
       );
     } else if (line.trim() === '') {
@@ -195,7 +214,7 @@ function BriefingContent({ content }: { content: string }) {
     } else {
       elements.push(
         <p key={index} className="text-muted-foreground mb-2">
-          {line}
+          {renderInline(line)}
         </p>
       );
     }

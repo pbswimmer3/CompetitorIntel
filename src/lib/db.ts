@@ -320,7 +320,7 @@ export async function getLatestBriefing(): Promise<Briefing | undefined> {
   const sql = getDb();
   const result = await sql`
     SELECT * FROM briefings
-    ORDER BY week_of DESC
+    ORDER BY generated_at DESC
     LIMIT 1
   `;
   return result[0] as Briefing | undefined;
@@ -330,7 +330,7 @@ export async function getAllBriefings(limit: number = 10): Promise<Briefing[]> {
   const sql = getDb();
   const result = await sql`
     SELECT * FROM briefings
-    ORDER BY week_of DESC
+    ORDER BY generated_at DESC
     LIMIT ${limit}
   `;
   return result as Briefing[];

@@ -35,10 +35,16 @@ const companyCIKs: Record<string, { cik: string; name: string }> = {
 // SEC EDGAR API base URL
 const SEC_API_BASE = 'https://data.sec.gov';
 
-// Required headers for SEC API
+// Headers for the EDGAR submissions JSON API
 const SEC_HEADERS = {
-  'User-Agent': 'CompetitorIntelDashboard/1.0 (competitive-intel-research)',
+  'User-Agent': 'CompetitorIntelDashboard/1.0 admin@competitor-intel.com',
   'Accept': 'application/json',
+};
+
+// Headers for fetching actual filing documents (HTML/text, not JSON)
+const SEC_DOC_HEADERS = {
+  'User-Agent': 'CompetitorIntelDashboard/1.0 admin@competitor-intel.com',
+  'Accept': 'text/html,application/xhtml+xml,text/plain,*/*',
 };
 
 // Filing types we're interested in
@@ -232,7 +238,7 @@ export function isPublicCompany(companyId: string): boolean {
 
 // Fetch a SEC document and return plain text
 export async function fetchSECDocumentText(documentUrl: string): Promise<string> {
-  const response = await fetch(documentUrl, { headers: SEC_HEADERS });
+  const response = await fetch(documentUrl, { headers: SEC_DOC_HEADERS });
 
   if (!response.ok) {
     throw new Error(`SEC document fetch failed: ${response.status}`);
