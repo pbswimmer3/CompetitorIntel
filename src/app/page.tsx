@@ -5,6 +5,7 @@ import { MarketOverview } from '@/components/MarketOverview';
 import { CompanyCard } from '@/components/CompanyCard';
 import { AlertFeed } from '@/components/AlertFeed';
 import { TrendCard } from '@/components/TrendCard';
+import { HighPriorityAlerts } from '@/components/HighPriorityAlerts';
 import { format } from 'date-fns';
 import useSWR from 'swr';
 
@@ -92,6 +93,9 @@ export default function Dashboard() {
           <TrendCard trends={trends} />
         </div>
       </div>
+
+      {/* High Priority Alerts */}
+      <HighPriorityAlerts news={news} />
 
       {/* Companies Grid */}
       <div id="companies">

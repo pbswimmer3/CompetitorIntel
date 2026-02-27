@@ -26,7 +26,7 @@ export interface SECCompanyInfo {
 
 // Map company IDs to SEC CIK numbers (only public companies)
 const companyCIKs: Record<string, { cik: string; name: string }> = {
-  'uipath': { cik: '0001856437', name: 'UiPath Inc' },
+  'uipath': { cik: '0001734722', name: 'UiPath Inc' },
   'microsoft': { cik: '0000789019', name: 'Microsoft Corporation' },
   'ibm': { cik: '0000051143', name: 'International Business Machines Corp' },
   'sap-signavio': { cik: '0001000184', name: 'SAP SE' }, // SAP owns Signavio
